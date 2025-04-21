@@ -1,9 +1,7 @@
 package com.runemate.party.miner;
 
-import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.*;
 import com.runemate.game.api.hybrid.entities.details.Interactable;
-import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.*;
 import com.runemate.game.api.hybrid.local.hud.InteractablePoint;
@@ -31,7 +29,6 @@ import java.awt.*;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 
 import static com.runemate.game.api.hybrid.local.Screen.getLocation;
 
@@ -122,7 +119,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
         getEventDispatcher().addListener(this);
         // Populate initial values
-        nextBreakTime = System.currentTimeMillis() + (1400 * 1000);
+        nextBreakTime = System.currentTimeMillis() + (60 * 1000);
         pathfinder = Pathfinder.create();
     }
 
@@ -130,69 +127,61 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         Area miningArea = settings.getLocation().getArea();
 
         if (miningArea == null || Players.getLocal() == null) {
-            System.out.println("❌ Invalid mining area or player.");
+            System.out.println("Fail: Invalid mining area or player.");
             return;
         }
 
         if (miningArea.contains(Players.getLocal())) {
-            System.out.println("✅ Already in the mining area.");
+            System.out.println("Already in the mining area.");
             return;
         }
 
-        System.out.println("🚶 Attempting to walk to mining area...");
+        Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
+                .start(Players.getLocal().getPosition())
+                .destination(miningArea.getRandomCoordinate())
+                .preferAccuracy();
 
-// Retry variables
-        int attempts = 0;
-        final int MAX_ATTEMPTS = 5;
-        boolean reached = false;
+        Path path = builder.findPath();
 
-        while (attempts < MAX_ATTEMPTS && !miningArea.contains(Players.getLocal())) {
-            Coordinate target = attempts < 2 ? miningArea.getCenter() : miningArea.getRandomCoordinate();
+        if (path == null) {
+            System.out.println("u2713 Could not find path to mining area.");
+            return;
+        }
 
-            Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
-                    .start(Players.getLocal().getPosition())
-                    .destination(target)
-                    .preferAccuracy();
+        System.out.println("Walking to mining area...");
 
-            Path path = builder.findPath();
+// Variable to track failed steps
+        int failedSteps = 0;
+        int maxFailedSteps = 8; // Number of failed steps before trying to rebuild the path
 
-            if (path != null && path.isValid()) {
-                int failedSteps = 0;
-                final int MAX_FAILED_STEPS = 8;
+        while (!miningArea.contains(Players.getLocal())) {
+            if (!path.step()) {
+                failedSteps++;
 
-                while (!miningArea.contains(Players.getLocal())) {
-                    if (!path.step()) {
-                        failedSteps++;
+                // If too many steps fail, rebuild the path to a different random coordinate
+                if (failedSteps >= maxFailedSteps) {
+                    System.out.println("Warning: Too many failed steps. Rebuilding path...");
 
-                        if (failedSteps >= MAX_FAILED_STEPS) {
-                            System.out.println("⚠️ Too many failed steps on current path. Breaking...");
-                            break;
-                        }
-                    } else {
-                        failedSteps = 0; // Reset if stepping works
+                    // Reset failed step counter and rebuild the path to a new destination
+                    failedSteps = 0;
+                    path = builder.destination(miningArea.getRandomCoordinate()).findPath();
+
+                    if (path == null || !path.isValid()) {
+                        System.out.println("Fail: Path rebuilding failed.");
+                        return;
                     }
-
-                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    Execution.delay(800, 1500);
-                }
-
-                if (miningArea.contains(Players.getLocal())) {
-                    reached = true;
-                    break;
                 }
             } else {
-                System.out.println("⚠️ Attempt " + (attempts + 1) + " failed to find a valid path.");
+                // Reset failed steps counter if the bot is moving successfully
+                failedSteps = 0;
             }
 
-            Execution.delay(500, 1000);
-            attempts++;
+            // Wait for the player to stop moving
+            Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+            Execution.delay(800, 1500);
         }
 
-        if (reached) {
-            System.out.println("✅ Reached the mining area.");
-        } else {
-            System.out.println("❌ Failed to reach the mining area after " + MAX_ATTEMPTS + " attempts.");
-        }
+        System.out.println("Success: Reached mining area.");
     }
 
     public void depositOresInBank() {
@@ -219,62 +208,75 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
     public void walkToAndOpenBank() {
         movingToBank = true;
 
+// Get closest bank area
         Area closestBank = BANK_LOCATIONS.stream()
                 .min(Comparator.comparingInt(b -> (int) b.getCenter().distanceTo(Players.getLocal().getPosition())))
-                .orElse(VARROCK_WEST_BANK);
+                .orElse(VARROCK_WEST_BANK); // default fallback
 
         if (closestBank == null || Players.getLocal() == null) {
-            System.out.println("❌ Invalid bank area or player.");
+            System.out.println("Fail: Invalid bank area or player.");
             return;
         }
 
-        System.out.println("🚶 Attempting to walk to bank...");
+// Check if we're already inside the bank
+        if (closestBank.contains(Players.getLocal())) {
+            System.out.println("Success: Already inside the bank area.");
+            return;
+        }
 
-// Retry mechanism
-        int attempts = 0;
-        final int MAX_ATTEMPTS = 5;
-        boolean reached = false;
+        Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
+                .start(Players.getLocal().getPosition())
+                .destination(closestBank.getRandomCoordinate())
+                .enableHomeTeleport(false)
+                .enableTeleports(false)
+                .avoidWilderness(true)
+                .preferAccuracy();
 
-        while (attempts < MAX_ATTEMPTS && !closestBank.contains(Players.getLocal())) {
-            Coordinate target = attempts < 2 ? closestBank.getCenter() : closestBank.getRandomCoordinate();
+        Path path = builder.findPath();
 
-            Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
-                    .start(Players.getLocal().getPosition())
-                    .destination(target)
-                    .enableHomeTeleport(false)
-                    .enableTeleports(false)
-                    .avoidWilderness(true)
-                    .preferAccuracy();
+        if (path == null) {
+            System.out.println("Fail Could not find path to bank.");
+            return;
+        }
 
-            Path path = builder.findPath();
+        System.out.println(" Walking to the bank...");
 
-            if (path != null && path.isValid()) {
-                while (!closestBank.contains(Players.getLocal()) && path.step()) {
-                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    Execution.delay(800, 1500);
-                }
+// Variable to track failed steps
+        int failedSteps = 0;
+        int maxFailedSteps = 8; // Number of failed steps before trying to rebuild the path
 
-                if (closestBank.contains(Players.getLocal())) {
-                    reached = true;
-                    break;
+        while (!closestBank.contains(Players.getLocal())) {
+            if (!path.step()) {
+                failedSteps++;
+
+                // If too many steps fail, rebuild the path to a different random coordinate
+                if (failedSteps >= maxFailedSteps) {
+                    System.out.println("Warning: Too many failed steps. Rebuilding path to bank...");
+
+                    // Reset failed step counter and rebuild the path to a new destination
+                    failedSteps = 0;
+                    path = builder.destination(closestBank.getRandomCoordinate()).findPath();
+
+                    if (path == null || !path.isValid()) {
+                        System.out.println("Fail: Path rebuilding failed.");
+                        return;
+                    }
                 }
             } else {
-                System.out.println("⚠️ Attempt " + (attempts + 1) + " failed to find a valid path.");
+                // Reset failed steps counter if the bot is moving successfully
+                failedSteps = 0;
             }
 
-            Execution.delay(500, 1000);
-            attempts++;
+            // Wait for the player to stop moving
+            Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+            Execution.delay(800, 1500);
         }
 
-        if (reached) {
-            System.out.println("✅ Arrived at the bank.");
-        } else {
-            System.out.println("❌ Failed to reach the bank after " + MAX_ATTEMPTS + " attempts.");
-        }
+        System.out.println("Success: Arrived at the bank.");
 
         Execution.delay(8000, 10000);
 
-        // 🔍 Once in range, try to find a bank object and interact
+        // Once in range, try to find a bank object and interact
         GameObject nearestBank = GameObjects.newQuery()
                 .actions("Bank")
                 .results()
@@ -288,7 +290,27 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             {
                 depositOresInBank();
             }
-            System.out.println("⚠️ Could not find a bank object to interact with.");
+            System.out.println("Warning: Could not find a bank object to interact with.");
+        }
+    }
+
+    private void logoutAndWaitToRelogin() {
+        InterfaceComponent logoutButton = Interfaces.getAt(182, 8); // Adjust IDs as necessary
+        if (logoutButton != null && logoutButton.isVisible()) {
+            logoutButton.click();
+            Execution.delay(500, 1000); // Wait for the logout to process
+        } else {
+            System.out.println("Logout button not found.");
+        }
+
+        // Fallback: Open logout tab then click button
+        InterfaceComponent logoutTab = Interfaces.getAt(164, 44); // Logout tab in sidebar
+        if (logoutTab != null && logoutTab.interact("Logout Tab")) {
+            Execution.delay(600, 900);
+            logoutButton = Interfaces.getAt(182, 8);
+            if (logoutButton != null && logoutButton.interact("Logout")) {
+                Execution.delayUntil(() -> Players.getLocal() == null, 3000);
+            }
         }
     }
 
@@ -301,11 +323,8 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         // 1) Break logic
         if (System.currentTimeMillis() >= nextBreakTime) {
             int breakSeconds = Random.nextInt(settings.getBreakMin(), settings.getBreakMax() + 1);
-            if(RuneScape.isLoggedIn()){
-                RuneScape.logout(RuneScape.isLoggedIn());
-            }
+            logoutAndWaitToRelogin();
             Execution.delay(breakSeconds * 1000); // Wait during logout
-            Execution.delayUntil(() -> RuneScape.isLoggedIn(), 5000, 30000); // waits up to 30 seconds for auto-login
             scheduleNextBreak();
         }
 
@@ -326,44 +345,12 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             walkToAndOpenBank();
         }
 
+        // 4) Anti‑ban random actions
         if (Random.nextInt(100) < 5) {
-            logger.info("🛡️ Performing anti-ban action...");
-
-            int action = Random.nextInt(3);
-            switch (action) {
-                case 0:
-                    // Simulate camera rotation
-                    int key = Random.nextBoolean() ? java.awt.event.KeyEvent.VK_LEFT : java.awt.event.KeyEvent.VK_RIGHT;
-                    Keyboard.pressKey(key);
-                    Execution.delay(Random.nextInt(300, 600));
-                    Keyboard.releaseKey(key);
-                    logger.info("🔄 Camera rotated via arrow key.");
-                    break;
-
-                case 1:
-// Hover over a nearby player
-                    Player localPlayer = Players.getLocal();
-                    Player target = Players.newQuery()
-                            .filter(p -> p != null && !Objects.equals(p.getPosition(), localPlayer.getPosition()))
-                            .results()
-                            .nearest();
-
-                    if (target != null) {
-                        target.hover();
-                        logger.info("👤 Hovered over a nearby player.");
-                    }
-                    break;
-                case 2:
-                    // Move to interface component
-                    InterfaceComponent compass = Interfaces.getAt(548, 9); // Example component
-                    if (compass != null && compass.isVisible()) {
-                        Mouse.move(compass);
-                        logger.info("🧭 Moved mouse to compass.");
-                    }
-                    break;
-            }
-
-            Execution.delay(Random.nextInt(300, 700));
+            // e.g., random camera or mouse movement
+            logger.info("Anti‑ban action");
+            // (you could add Mouse.moveRandomly() here)
+            Execution.delay(Random.nextInt(200, 500));
         }
 
         Player player = Players.getLocal();
@@ -413,7 +400,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
         if (rock.interact("Mine") && Execution.delayUntil(() -> player.getAnimationId() != -1, () -> player.isMoving(), 3000)) {
             // Wait while player is still mining
-            Execution.delayWhile(() -> player.getAnimationId() != -1 || player.isMoving(), 2000, 4000);
+            Execution.delayWhile(() -> player.getAnimationId() != -1 || player.isMoving(), 100, 6000);
         } else {
             Execution.delay(Random.nextInt(500, 1500));
         }
