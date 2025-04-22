@@ -16,7 +16,7 @@ runemate {
 
     manifests {
         create("Simple Miner") {
-            mainClass = "com.runemate.party.miner.SimpleMiner"
+            mainClass = "com.runemate.party.mining.SimpleMiner"
             tagline = "My simple Miner!"
             description = "A simple Miner that does it all"
             version = "1.0.0"

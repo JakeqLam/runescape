@@ -1,4 +1,4 @@
-package com.runemate.party.cooking;
+package com.runemate.party.mining;
 
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;

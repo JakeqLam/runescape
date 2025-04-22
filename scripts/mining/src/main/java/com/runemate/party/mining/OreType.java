@@ -1,4 +1,4 @@
-package com.runemate.party.cooking;
+package com.runemate.party.mining;
 
 public enum OreType {
     COPPER("Copper rocks"),
