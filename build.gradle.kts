@@ -24,6 +24,8 @@ runemate {
     devMode = true
     autoLogin = true
 
+    submissionToken = "rmp_Iglrs8b2uu1qLwk6OJKZCdMIQBZ0YH3j52Mr"
+
     manifests {
         create("Auto Bots") {
             mainClass = "java.Test"

@@ -28,7 +28,7 @@ public class AntiBan {
                 0, 0, 0, 0, // Camera rotation (case 0, more weight)
                 1,    // Hover over player (case 1)
                 2,    // Hover over NPC (case 2)
-                3, 3, 3, 3,    // Move mouse (case 3)
+                3, 3, 3,    // Move mouse (case 3)
                 4,    // Camera zoom (case 4)
                 5
         };
@@ -198,6 +198,8 @@ public class AntiBan {
             case 5 -> {
                 // OSRS default F-key bindings (modify based on your settings)
                 final int[] TAB_KEYS = {
+                        KeyEvent.VK_F2, // Stats
+                        KeyEvent.VK_F4, // Inventory
                         KeyEvent.VK_F2, // Stats
                         KeyEvent.VK_F4, // Inventory
                         KeyEvent.VK_F8, // Friends

@@ -1,14 +1,18 @@
 package com.runemate.party.mining;
 
+import com.runemate.game.api.hybrid.Environment;
 import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Player;
+import com.runemate.game.api.hybrid.entities.details.Interactable;
+import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.location.navigation.Path;
+import com.runemate.game.api.hybrid.location.navigation.basic.BresenhamPath;
 import com.runemate.game.api.hybrid.location.navigation.cognizant.ScenePath;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Players;
@@ -23,6 +27,8 @@ import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+
+import java.awt.*;
 import java.util.List;
 import java.util.*;
 
@@ -138,12 +144,12 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         int attempts = 0;
         final int MAX_ATTEMPTS = 5;
         boolean reached = false;
+        Coordinate target = miningArea.getCenter();
 
         while (attempts < MAX_ATTEMPTS && !miningArea.contains(Players.getLocal())) {
-            Coordinate target = attempts < 3 ? miningArea.getRandomCoordinate() : miningArea.getCenter();
+            target = attempts < 3 ? miningArea.getRandomCoordinate() : miningArea.getCenter();
 
             Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
-                    .start(Players.getLocal().getPosition())
                     .enableHomeTeleport(false)
                     .destination(target)
                     .preferAccuracy();
@@ -152,7 +158,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
             if (path != null && path.isValid()) {
                 int failedSteps = 0;
-                final int MAX_FAILED_STEPS = 8;
+                final int MAX_FAILED_STEPS = 4;
 
                 while (!miningArea.contains(Players.getLocal())) {
                     if (!path.step()) {
@@ -164,6 +170,9 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                         }
                     } else {
                         failedSteps = 0; // Reset if stepping works
+                        System.out.println("Pathing success");
+                        if (Random.nextInt(100) < 2)  // 2% chance
+                            antiBan.performAntiBan();
                     }
 
                     Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
@@ -186,6 +195,16 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             System.out.println("✅ Reached the mining area.");
         } else {
             System.out.println("❌ Failed to reach the mining area after " + MAX_ATTEMPTS + " attempts.");
+            fallBack(target);
+        }
+    }
+
+    public void fallBack(Coordinate coordinate) {
+        // Fallback: Click a nearby walkable tile using Interactable
+        Path path = BresenhamPath.buildTo(coordinate.randomize(10,10));
+        if (path != null) {
+            path.step();
+            Execution.delay(800, 1500);
         }
     }
 
@@ -217,7 +236,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                 .min(Comparator.comparingInt(b -> (int) b.getCenter().distanceTo(Players.getLocal().getPosition())))
                 .orElse(VARROCK_WEST_BANK);
 
-        if (closestBank == null || Players.getLocal() == null) {
+        if (Players.getLocal() == null) {
             System.out.println("❌ Invalid bank area or player.");
             return;
         }
@@ -228,12 +247,12 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         int attempts = 0;
         final int MAX_ATTEMPTS = 5;
         boolean reached = false;
+        Coordinate target = closestBank.getCenter();
 
         while (attempts < MAX_ATTEMPTS && !closestBank.contains(Players.getLocal())) {
-            Coordinate target = attempts < 3 ? closestBank.getRandomCoordinate() : closestBank.getCenter();
+            target = attempts < 3 ? closestBank.getRandomCoordinate() : closestBank.getCenter();
 
             Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
-                    .start(Players.getLocal().getPosition())
                     .destination(target)
                     .enableHomeTeleport(false)
                     .enableTeleports(false)
@@ -244,7 +263,10 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
             if (path != null && path.isValid()) {
                 while (!closestBank.contains(Players.getLocal()) && path.step()) {
+                    System.out.println("Pathing success");
                     Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+                    if (Random.nextInt(100) < 2)  // 2% chance
+                        antiBan.performAntiBan();
                     Execution.delay(800, 1500);
                 }
 
@@ -264,6 +286,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             System.out.println("✅ Arrived at the bank.");
         } else {
             System.out.println("❌ Failed to reach the bank after " + MAX_ATTEMPTS + " attempts.");
+            fallBack(target);
         }
 
         Execution.delay(8000, 10000);
@@ -320,7 +343,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             walkToAndOpenBank();
         }
 
-        if (Random.nextInt(100) < 20) { // 20% chance
+        if (Random.nextInt(100) < 5) { // 5% chance
             antiBan.performAntiBan();
         }
 

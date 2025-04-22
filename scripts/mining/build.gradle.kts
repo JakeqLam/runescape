@@ -12,13 +12,12 @@ runemate {
      * Do not specify it in this file, it will be detected automatically if declared in your gradle.properties under the key
      * 'runemateSubmissionToken', I have only included it here so that you are aware of it
      */
-    submissionToken = ""
 
     manifests {
-        create("Simple Miner") {
+        create("GPT Miner") {
             mainClass = "com.runemate.party.mining.SimpleMiner"
-            tagline = "My simple Miner!"
-            description = "A simple Miner that does it all"
+            tagline = "A miner that mines and banks"
+            description = "A miner that mines and banks, with anti-ban"
             version = "1.0.0"
             internalId = "example-Miner"
 
