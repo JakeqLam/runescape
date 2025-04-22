@@ -91,13 +91,6 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             ZEAH_BANK
     );
 
-    // Use a shared safe waypoint list (can be saved/loaded if needed)
-    Set<Coordinate> safeWaypoints = new HashSet<>(Arrays.asList(
-            new Coordinate(3183, 3440, 0), // Varrock West Bank
-            new Coordinate(3253, 3423, 0), // Varrock East Bank
-            new Coordinate(3165, 3480, 0) // Grand Exchange Bank
-    ));
-
     private static final Logger logger = LogManager.getLogger(SimpleMiner.class);
 
     @SettingsProvider(updatable = true)

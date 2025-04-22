@@ -1,17 +1,20 @@
 package com.runemate.party.mining;
 
+import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
 import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
-import com.runemate.game.api.hybrid.local.hud.InteractablePoint;
+import com.runemate.game.api.hybrid.location.Coordinate;
+import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
 
-import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.util.List;
+import java.util.Objects;
 
 public class AntiBan {
 
@@ -25,10 +28,9 @@ public class AntiBan {
                 0, 0, 0, 0, // Camera rotation (case 0, more weight)
                 1,    // Hover over player (case 1)
                 2,    // Hover over NPC (case 2)
-                3,    // Move mouse (case 3)
+                3, 3, 3, 3,    // Move mouse (case 3)
                 4,    // Camera zoom (case 4)
-                5, 5, // Idle action (case 5, more weight)
-                6     // Switch tab (case 6)
+                5
         };
 
         int action = weightedActions[Random.nextInt(weightedActions.length)];
@@ -109,16 +111,77 @@ public class AntiBan {
                 }
             }
             case 3 -> {
-                // Move mouse to a random screen position using an InteractablePoint
-                int x = Random.nextInt(200, 500);
-                int y = Random.nextInt(100, 400);
-                InteractablePoint fakePoint = new InteractablePoint(new Point(x, y));
-                if (Mouse.move(fakePoint)) {
-                    System.out.println("🖱️ Moved mouse to random interactable point: (" + x + ", " + y + ")");
-                } else {
-                    System.out.println("⚠️ Failed to move mouse to random point.");
+                // Get the local player
+                Player localPlayer = Players.getLocal();
+
+                if (localPlayer == null) {
+                    System.out.println("Local player not found.");
+                    return;
                 }
-                Execution.delay(Random.nextInt(300, 500));
+
+                // Get the player's current position
+                Coordinate playerPosition = localPlayer.getPosition();
+
+                // Use newQuery() to find all interactable GameObjects and filter them by distance (within 30 tiles)
+                List<GameObject> nearbyGameObjects = GameObjects.newQuery()
+                        .filter(gameObject -> gameObject != null &&
+                                gameObject.isValid() &&  // Ensure object is interactable
+                                Objects.requireNonNull(gameObject.getPosition()).distanceTo(playerPosition) <= 30) // Check if it's within 30 tiles
+                        .results()
+                        .asList();
+
+                if (nearbyGameObjects.isEmpty()) {
+                    System.out.println("No interactable GameObjects found within 30 tiles, skipping hover.");
+                    return;
+                }
+
+                // Select a random GameObject from the nearby list
+                GameObject randomGameObject = nearbyGameObjects.get(Random.nextInt(nearbyGameObjects.size()));
+
+                // Log the selected GameObject
+                System.out.println("Selected interactable GameObject: " + randomGameObject);
+
+                // Ensure the GameObject is interactable before moving the mouse
+                if (!randomGameObject.isValid()) {
+                    System.out.println("The selected GameObject is not interactable.");
+                    return;
+                }
+
+                // Get the interactable position of the GameObject
+                Coordinate targetPosition = randomGameObject.getPosition();
+
+                // Log the initial mouse movement
+                System.out.println("Starting mouse movement towards GameObject at: (" + targetPosition.getX() + ", " + targetPosition.getY() + ")");
+
+                // Human-like movement: Random delay and gradual approach
+                int steps = Random.nextInt(10, 20); // Number of small movement steps
+                for (int i = 0; i < steps; i++) {
+                    // Slightly randomize each step's target within a small range to simulate non-linear movement
+                    int stepX = targetPosition.getX() + Random.nextInt(-5, 5);
+                    int stepY = targetPosition.getY() + Random.nextInt(-5, 5);
+
+                    // Log each step of the movement
+                    System.out.println("Step " + (i + 1) + ": Moving to (" + stepX + ", " + stepY + ")");
+
+                    // Move the mouse to the new position within the interactable area of the object
+                    Mouse.move(randomGameObject.getPosition());  // Move to the GameObject's interactable position
+
+                    // Add a small delay between each movement to simulate human hesitation
+                    Execution.delay(Random.nextInt(50, 100));  // 50-100ms between steps
+                }
+
+                // Once the mouse is in the area, hover over the game object
+                System.out.println("Final move to target: (" + targetPosition.getX() + ", " + targetPosition.getY() + ")");
+
+                // Move mouse to interactable position of the GameObject
+                Mouse.move(randomGameObject.getPosition());  // Finally, position it directly over the object
+                randomGameObject.hover();  // Hover over the game object
+
+                // Log hover action
+                System.out.println("Hovered over GameObject: " + randomGameObject);
+
+                // Hover time, a random delay to simulate waiting
+                Execution.delay(Random.nextInt(500, 1000));  // Simulate hover time (500ms - 1s)
             }
             case 4 -> {
                 // Simulate camera zoom (if enough time has passed)
@@ -133,28 +196,6 @@ public class AntiBan {
                 }
             }
             case 5 -> {
-                // Idle for a realistic human-like duration
-                int idleDuration = Random.nextInt(1200, 6000); // 1.2 to 6 seconds
-                System.out.println("💤 Idling for " + idleDuration + "ms...");
-                Execution.delay(idleDuration);
-
-                // 50% chance to do a subtle mouse twitch while idling
-                if (Random.nextBoolean()) {
-                    Point current = Mouse.getPosition();
-                    Point twitch = new Point(
-                            current.x + Random.nextInt(-3, 3),
-                            current.y + Random.nextInt(-3, 3)
-                    );
-
-                    InteractablePoint interactableTwitch = new InteractablePoint(twitch);
-                    if (Mouse.move(interactableTwitch)) {
-                        System.out.println("🖱️ Idle mouse twitch to: (" + twitch.x + ", " + twitch.y + ")");
-                    } else {
-                        System.out.println("❌ Failed to move mouse during idle twitch.");
-                    }
-                }
-            }
-            case 6 -> {
                 // OSRS default F-key bindings (modify based on your settings)
                 final int[] TAB_KEYS = {
                         KeyEvent.VK_F2, // Stats
@@ -188,3 +229,4 @@ public class AntiBan {
         Execution.delay(Random.nextInt(200, 500));
     }
 }
+
