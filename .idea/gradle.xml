@@ -5,10 +5,13 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleHome" value="$PROJECT_DIR$/../../../../Gradle/gradle-8.7" />
+        <option name="gradleHome" value="$USER_HOME$/Gradle/gradle-8.7" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/scripts/agility" />
+            <option value="$PROJECT_DIR$/scripts/cooking" />
+            <option value="$PROJECT_DIR$/scripts/mining" />
           </set>
         </option>
       </GradleProjectSettings>
