@@ -1,11 +1,8 @@
 package com.runemate.party.mining;
 
-import com.runemate.game.api.hybrid.Environment;
 import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Player;
-import com.runemate.game.api.hybrid.entities.details.Interactable;
-import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
@@ -22,15 +19,15 @@ import com.runemate.game.api.script.Execution;
 import com.runemate.game.api.script.framework.LoopingBot;
 import com.runemate.game.api.script.framework.listeners.SettingsListener;
 import com.runemate.game.api.script.framework.listeners.events.SettingChangedEvent;
+import com.runemate.party.common.AntiBan;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-
-import java.awt.*;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
-import java.util.*;
 
 public class SimpleMiner extends LoopingBot implements SettingsListener {
 

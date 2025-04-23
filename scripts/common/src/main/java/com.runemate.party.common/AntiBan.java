@@ -1,4 +1,4 @@
-package com.runemate.party.mining;
+package com.runemate.party.common;
 
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Npc;
@@ -25,12 +25,13 @@ public class AntiBan {
 
 // Weighted action pool: more entries = higher chance
         int[] weightedActions = {
-                0, 0, 0, 0, // Camera rotation (case 0, more weight)
+                0, 0, 0, 0, 0, 0, // Camera rotation (case 0, more weight)
                 1,    // Hover over player (case 1)
                 2,    // Hover over NPC (case 2)
-                3, 3, 3,    // Move mouse (case 3)
+                3, 3, 3, 3,    // Move mouse (case 3)
                 4,    // Camera zoom (case 4)
-                5
+                5,
+                6 // idle
         };
 
         int action = weightedActions[Random.nextInt(weightedActions.length)];
@@ -224,6 +225,10 @@ public class AntiBan {
                     Keyboard.releaseKey(KeyEvent.VK_F4);
                     System.out.println("↩️ Returned to Inventory (F4)");
                 }
+            }
+            case 6 -> {
+                System.out.println("↩️ idling");
+                Execution.delay(Random.nextInt(6000, 13000));
             }
         }
 

@@ -16,6 +16,7 @@ import com.runemate.game.api.script.Execution;
 import com.runemate.game.api.script.framework.LoopingBot;
 import com.runemate.game.api.script.framework.listeners.SettingsListener;
 import com.runemate.game.api.script.framework.listeners.events.SettingChangedEvent;
+import com.runemate.party.common.AntiBan;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 

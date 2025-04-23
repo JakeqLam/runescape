@@ -1,5 +1,9 @@
 import com.runemate.game.api.bot.data.Category
 
+dependencies {
+    implementation(project(":common"))
+}
+
 runemate {
     //This is useful when you are working on a bot that you are not ready to publish yet
     excludeFromSubmission = false
