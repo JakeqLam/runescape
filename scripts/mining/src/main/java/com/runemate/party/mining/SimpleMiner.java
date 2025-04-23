@@ -199,12 +199,42 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         }
     }
 
-    public void fallBack(Coordinate coordinate) {
+    public void fallBack(Coordinate target) {
         // Fallback: Click a nearby walkable tile using Interactable
-        Path path = BresenhamPath.buildTo(coordinate.randomize(10,10));
+        Path path = BresenhamPath.buildTo(target.randomize(10,10));
         if (path != null) {
             path.step();
             Execution.delay(800, 1500);
+        } else {
+            Coordinate start = Players.getLocal().getPosition();
+
+            if (start == null) {
+                System.out.println("❌ Invalid start or target coordinate.");
+                return;
+            }
+
+            // Calculate 1/3rd point between start and target
+            int newX = start.getX() + (target.getX() - start.getX()) / 3;
+            int newY = start.getY() + (target.getY() - start.getY()) / 3;
+            Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
+
+            // Randomize slightly to avoid exact clicks
+            Coordinate destination = oneThird.randomize(1, 1);
+
+            path = pathfinder.pathBuilder().destination(destination)
+                    .enableHomeTeleport(false)
+                    .avoidWilderness(true)
+                    .preferAccuracy().findPath();
+            if (path != null && path.isValid()) {
+                if (path.step()) {
+                    System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
+                    Execution.delay(800, 1500);
+                } else {
+                    System.out.println("⚠️ Failed to step to fallback destination.");
+                }
+            } else {
+                System.out.println("❌ Fallback path is invalid.");
+            }
         }
     }
 
