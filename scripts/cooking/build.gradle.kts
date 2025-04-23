@@ -15,8 +15,8 @@ runemate {
     submissionToken = ""
 
     manifests {
-        create("Simple Cooker") {
-            mainClass = "com.runemate.party.cooking.SimpleCooking"
+        create("GPT Cooker") {
+            mainClass = "com.runemate.party.cooking.SimpleCooker"
             tagline = "My simple Cooker!"
             description = "A simple Cooker that does it all"
             version = "1.0.0"

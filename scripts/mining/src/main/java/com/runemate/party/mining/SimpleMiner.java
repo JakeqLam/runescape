@@ -266,6 +266,11 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                 .min(Comparator.comparingInt(b -> (int) b.getCenter().distanceTo(Players.getLocal().getPosition())))
                 .orElse(VARROCK_WEST_BANK);
 
+        if (closestBank.contains(Players.getLocal())) {
+            System.out.println("✅ Already in the bank area.");
+            return;
+        }
+
         if (Players.getLocal() == null) {
             System.out.println("❌ Invalid bank area or player.");
             return;
@@ -351,6 +356,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             if(RuneScape.isLoggedIn()){
                 RuneScape.logout(RuneScape.isLoggedIn());
             }
+            System.out.println("Taking break for: " + breakSeconds);
             Execution.delay(breakSeconds * 1000); // Wait during logout
             Execution.delayUntil(() -> RuneScape.isLoggedIn(), 5000, 30000); // waits up to 30 seconds for auto-login
             scheduleNextBreak();
