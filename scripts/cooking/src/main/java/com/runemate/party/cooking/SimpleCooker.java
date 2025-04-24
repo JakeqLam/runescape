@@ -3,6 +3,7 @@ package com.runemate.party.cooking;
 import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.input.Keyboard;
+import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Area;
@@ -94,6 +95,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             System.out.println("No raw food in inventory. Walking to bank to withdraw.");
             if (isAllFoodCooked()) {
                 System.out.println("All food cooked. Stopping bot.");
+                RuneScape.logout();
                stop();
                 return;
             }
@@ -177,39 +179,73 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         if (cookingObject != null && cookingObject.isVisible()) {
             System.out.println("🍳 Cooking object found: " + cookingObject + ". Attempting to cook...");
 
-            Execution.delay(Random.nextInt(500, 800));
+            // --- MISCLICK SIMULATION (20% chance) ---
+            if (Random.nextInt(0,11) < 2) {
+                System.out.println("🤖 Simulating misclick...");
+                // Click near but not on the object
+                Mouse.move(cookingObject.getPosition().randomize(10, 15));
+                Execution.delay(Random.nextInt(200, 500));
+                Mouse.click(Mouse.Button.LEFT);
+
+                // Realize mistake and correct
+                Execution.delay(Random.nextInt(800, 1200));
+                System.out.println("🔄 Correcting misclick...");
+            }
+
+            // --- MAIN COOKING LOGIC ---
+            Execution.delay(Random.nextInt(500, 800)); // Human reaction delay
 
             if (cookingObject.interact("Cook")) {
-                Execution.delay(Random.nextInt(3500, 4500));
-                    System.out.println("📋 Cooking interface appeared. Pressing space to confirm.");
-                    Execution.delay(Random.nextInt(300, 600));
-                    Keyboard.typeKey(KeyEvent.VK_SPACE);
 
+                Execution.delay(Random.nextInt(4000, 5100)); // Human reaction delay
+
+                    System.out.println("📋 Cooking interface appeared");
+
+                    // Random delay before pressing space (human hesitation)
+                    Execution.delay(Random.nextInt(300, 800));
+
+                    // Simulate potential keypress fumble (10% chance)
+                    if (Random.nextInt(0,11) < 0.1) {
+                        System.out.println("⌨️ Simulating keypress fumble...");
+                        Keyboard.typeKey(KeyEvent.VK_SHIFT); // Wrong key
+                        Execution.delay(Random.nextInt(200, 400));
+                    }
+
+                    Keyboard.typeKey(KeyEvent.VK_SPACE);
+                    System.out.println("✅ Confirmed cooking");
+
+                    // Wait for animation with anti-ban checks
                     boolean startedCooking = Execution.delayUntil(
                             () -> Players.getLocal().getAnimationId() != -1,
                             Random.nextInt(800, 1500),
-                            Random.nextInt(2500, 4000)
+                            Random.nextInt(3000, 5000)
                     );
 
                     if (startedCooking) {
-                        System.out.println("✅ Cooking animation started. Monitoring progress...");
+                        System.out.println("🔥 Cooking started");
 
-                        // While cooking animation is active, do antiban occasionally
+                        // --- ANIMATION LOOP WITH ANTI-BAN ---
                         while (Players.getLocal().getAnimationId() != -1) {
-                            Execution.delay(Random.nextInt(800, 1500));
-                            if (Random.nextInt(100) < 10) {
-                                System.out.println("🔍 Performing anti-ban during cooking.");
+                            Execution.delay(Random.nextInt(1000, 2000));
+
+                            // Anti-ban during cooking (5% chance)
+                            if (Random.nextInt(0,100) < 5) {
                                 antiBan.performAntiBan();
                             }
-                        }
 
-                        System.out.println("🍽️ Cooking cycle ended.");
+                            // Small chance of early exit (like misclick)
+                            if (Random.nextInt(0,100) < 5) {
+                                System.out.println("🚪 Simulating early exit");
+                                break;
+                            }
+                        }
                     } else {
-                        System.out.println("⚠️ Failed to detect animation.");
+                        System.out.println("⚠️ Failed to start cooking");
+                        // Recover by trying again after delay
+                        Execution.delay(Random.nextInt(2000, 3000));
                     }
-                } else {
-                    System.out.println("❌ Cooking interface did not appear.");
-                }
+
+            }
 
         } else {
             System.out.println("🚶 Cooking object not found or not visible. Walking to cooking area.");

@@ -5,6 +5,7 @@ import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
 import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
+import com.runemate.game.api.hybrid.local.Camera;
 import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
@@ -15,225 +16,134 @@ import com.runemate.game.api.script.Execution;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public class AntiBan {
 
     private long lastZoomTime = 0;
+    private long lastCameraMoveTime = 0;
 
     public void performAntiBan() {
         System.out.println("🛡️ Performing anti-ban action...");
 
-// Weighted action pool: more entries = higher chance
+        // Weighted action pool (more entries = higher chance)
         int[] weightedActions = {
-                0, 0, 0, 0, 0, 0, // Camera rotation (case 0, more weight)
-                1,    // Hover over player (case 1)
-                2,    // Hover over NPC (case 2)
-                3, 3, 3, 3,    // Move mouse (case 3)
-                4,    // Camera zoom (case 4)
-                5,
-                6 // idle
+                0, 0, 0, 0, 0, 0, // Camera movement (most common)
+                1, 1,             // Hover player
+                2, 2,             // Hover NPC
+                3, 3, 3, 3,       // Move mouse (gradual)
+                4,                // Camera zoom
+                5, 5,          // Tab switching
+                6, 6, 6        // Idle (AFK)
         };
 
-        int action = weightedActions[Random.nextInt(weightedActions.length)];
+        int action = weightedActions[Random.nextInt(0, weightedActions.length)];
 
         switch (action) {
-            case 0 -> {
-                // All possible key combinations: solo + diagonal
-                int[][] keyCombos = {
-                        {KeyEvent.VK_LEFT},                 // Rotate left
-                        {KeyEvent.VK_RIGHT},                // Rotate right
-                        {KeyEvent.VK_UP},                   // Pitch up
-                        {KeyEvent.VK_DOWN},                 // Pitch down
-                        {KeyEvent.VK_LEFT, KeyEvent.VK_UP},    // Diagonal up-left
-                        {KeyEvent.VK_RIGHT, KeyEvent.VK_UP},   // Diagonal up-right
-                        {KeyEvent.VK_LEFT, KeyEvent.VK_DOWN},  // Diagonal down-left
-                        {KeyEvent.VK_RIGHT, KeyEvent.VK_DOWN}  // Diagonal down-right
-                };
+            case 0: // Camera Movement (Arrow Keys or Middle-Mouse)
+                if (Random.nextInt(0,10) < 3) { // 30% chance for middle-mouse drag
+                    Camera.concurrentlyTurnTo(Random.nextInt(0, 360), Random.nextInt(0, 90));
+                    System.out.println("🎥 Middle-mouse camera drag");
+                } else { // 70% chance for arrow keys
+                    int[][] keyCombos = {
+                            {KeyEvent.VK_LEFT},
+                            {KeyEvent.VK_RIGHT},
+                            {KeyEvent.VK_UP},
+                            {KeyEvent.VK_DOWN},
+                            {KeyEvent.VK_LEFT, KeyEvent.VK_UP},
+                            {KeyEvent.VK_RIGHT, KeyEvent.VK_UP},
+                            {KeyEvent.VK_LEFT, KeyEvent.VK_DOWN},
+                            {KeyEvent.VK_RIGHT, KeyEvent.VK_DOWN}
+                    };
 
-                int[] combo = keyCombos[Random.nextInt(keyCombos.length)];
-
-                // Press all keys in the combo
-                for (int key : combo) {
-                    Keyboard.pressKey(key);
+                    int[] combo = keyCombos[Random.nextInt(0, keyCombos.length)];
+                    for (int key : combo) Keyboard.pressKey(key);
+                    Execution.delay(Random.nextInt(500, 1800));
+                    for (int key : combo) Keyboard.releaseKey(key);
+                    System.out.println("🎥 Arrow-key camera move");
                 }
+                lastCameraMoveTime = System.currentTimeMillis();
+                break;
 
-                // Hold the keys for a random duration
-                Execution.delay(Random.nextInt(500, 1800));
-
-                // Release the keys
-                for (int key : combo) {
-                    Keyboard.releaseKey(key);
-                }
-
-                // Build a readable direction string
-                StringBuilder direction = new StringBuilder();
-                for (int key : combo) {
-                    direction.append(
-                            switch (key) {
-                                case KeyEvent.VK_LEFT -> "LEFT ";
-                                case KeyEvent.VK_RIGHT -> "RIGHT ";
-                                case KeyEvent.VK_UP -> "UP ";
-                                case KeyEvent.VK_DOWN -> "DOWN ";
-                                default -> "";
-                            }
-                    );
-                }
-
-                System.out.println("🎥 Camera moved: " + direction.toString().trim());
-
-                // Optional: misclick delay
-                if (Random.nextInt(100) < 25) {
-                    int delay = Random.nextInt(120, 300);
-                    System.out.println("⌛ Simulating misclick delay: " + delay + "ms");
-                    Execution.delay(delay);
-                }
-            }
-            case 1 -> {
-                // Hover over a random nearby player
+            case 1: // Hover Player
                 Player local = Players.getLocal();
-                Player player = Players.newQuery()
-                        .filter(p -> p != null && !p.equals(local) && p.isVisible())
+                Player player = Players.newQuery().filter(p -> p != null && !p.equals(local)).results().random();
+                if (player != null) {
+                    Mouse.move(player);
+                    System.out.println("👤 Hovered player: " + player.getName());
+                    Execution.delay(Random.nextInt(300, 800));
+                }
+                break;
+
+            case 2: // Hover NPC
+                Npc npc = Npcs.newQuery().filter(Npc::isValid).results().random();
+                if (npc != null) {
+                    Mouse.move(npc);
+                    System.out.println("🧟 Hovered NPC: " + npc.getName());
+                    Execution.delay(Random.nextInt(300, 800));
+                }
+                break;
+
+            case 3: // Gradual Mouse Movement (Human-Like)
+                GameObject obj = GameObjects.newQuery()
+                        .filter(o -> o != null && o.isValid())
                         .results()
                         .random();
 
-                if (player != null) {
-                    player.hover();
-                    System.out.println("👤 Hovered over player: " + player.getName());
-                    Execution.delay(Random.nextInt(300, 600));
+                if (obj != null) {
+                    for (int i = 0; i < Random.nextInt(5, 15); i++) {
+                        Mouse.move(obj.getPosition());
+                        Execution.delay(Random.nextInt(50, 150));
+                    }
+                    System.out.println("🖱️ Moved mouse to object");
                 }
-            }
-            case 2 -> {
-                // Hover over a random visible NPC
-                Npc npc = Npcs.newQuery().filter(Npc::isVisible).results().random();
-                if (npc != null) {
-                    npc.hover();
-                    System.out.println("🧟 Hovered over NPC: " + npc.getName());
-                    Execution.delay(Random.nextInt(300, 600));
-                }
-            }
-            case 3 -> {
-                // Get the local player
-                Player localPlayer = Players.getLocal();
+                break;
 
-                if (localPlayer == null) {
-                    System.out.println("Local player not found.");
-                    return;
-                }
-
-                // Get the player's current position
-                Coordinate playerPosition = localPlayer.getPosition();
-
-                // Use newQuery() to find all interactable GameObjects and filter them by distance (within 30 tiles)
-                List<GameObject> nearbyGameObjects = GameObjects.newQuery()
-                        .filter(gameObject -> gameObject != null &&
-                                gameObject.isValid() &&  // Ensure object is interactable
-                                Objects.requireNonNull(gameObject.getPosition()).distanceTo(playerPosition) <= 30) // Check if it's within 30 tiles
-                        .results()
-                        .asList();
-
-                if (nearbyGameObjects.isEmpty()) {
-                    System.out.println("No interactable GameObjects found within 30 tiles, skipping hover.");
-                    return;
-                }
-
-                // Select a random GameObject from the nearby list
-                GameObject randomGameObject = nearbyGameObjects.get(Random.nextInt(nearbyGameObjects.size()));
-
-                // Log the selected GameObject
-                System.out.println("Selected interactable GameObject: " + randomGameObject);
-
-                // Ensure the GameObject is interactable before moving the mouse
-                if (!randomGameObject.isValid()) {
-                    System.out.println("The selected GameObject is not interactable.");
-                    return;
-                }
-
-                // Get the interactable position of the GameObject
-                Coordinate targetPosition = randomGameObject.getPosition();
-
-                // Log the initial mouse movement
-                System.out.println("Starting mouse movement towards GameObject at: (" + targetPosition.getX() + ", " + targetPosition.getY() + ")");
-
-                // Human-like movement: Random delay and gradual approach
-                int steps = Random.nextInt(10, 20); // Number of small movement steps
-                for (int i = 0; i < steps; i++) {
-                    // Slightly randomize each step's target within a small range to simulate non-linear movement
-                    int stepX = targetPosition.getX() + Random.nextInt(-5, 5);
-                    int stepY = targetPosition.getY() + Random.nextInt(-5, 5);
-
-                    // Log each step of the movement
-                    System.out.println("Step " + (i + 1) + ": Moving to (" + stepX + ", " + stepY + ")");
-
-                    // Move the mouse to the new position within the interactable area of the object
-                    Mouse.move(randomGameObject.getPosition());  // Move to the GameObject's interactable position
-
-                    // Add a small delay between each movement to simulate human hesitation
-                    Execution.delay(Random.nextInt(50, 100));  // 50-100ms between steps
-                }
-
-                // Once the mouse is in the area, hover over the game object
-                System.out.println("Final move to target: (" + targetPosition.getX() + ", " + targetPosition.getY() + ")");
-
-                // Move mouse to interactable position of the GameObject
-                Mouse.move(randomGameObject.getPosition());  // Finally, position it directly over the object
-                randomGameObject.hover();  // Hover over the game object
-
-                // Log hover action
-                System.out.println("Hovered over GameObject: " + randomGameObject);
-
-                // Hover time, a random delay to simulate waiting
-                Execution.delay(Random.nextInt(500, 1000));  // Simulate hover time (500ms - 1s)
-            }
-            case 4 -> {
-                // Simulate camera zoom (if enough time has passed)
-                if (System.currentTimeMillis() - lastZoomTime > 2 * 60 * 1000) {
+            case 4: // Camera Zoom (with cooldown & double scroll chance)
+                if (System.currentTimeMillis() - lastZoomTime > TimeUnit.MINUTES.toMillis(2)) {
                     boolean zoomIn = Random.nextBoolean();
-                    Mouse.scroll(zoomIn); // true = scroll up (zoom in), false = scroll down (zoom out)
-                    System.out.println("🔍 Camera zoom " + (zoomIn ? "in" : "out"));
+                    int scrolls = Random.nextInt(0,10) < 3 ? 2 : 1; // 30% chance for double scroll
+                    for (int i = 0; i < scrolls; i++) {
+                        Mouse.scroll(zoomIn);
+                        Execution.delay(Random.nextInt(100, 300));
+                    }
+                    System.out.println("🔍 Zoomed " + (zoomIn ? "in" : "out") + (scrolls > 1 ? " (x2)" : ""));
                     lastZoomTime = System.currentTimeMillis();
-                    Execution.delay(Random.nextInt(300, 500));
-                } else {
-                    System.out.println("⏳ Skipped zoom: cooldown active.");
                 }
-            }
-            case 5 -> {
-                // OSRS default F-key bindings (modify based on your settings)
-                final int[] TAB_KEYS = {
+                break;
+
+            case 5: // Tab Switching (F-Keys)
+                int[] tabs = {
+                        KeyEvent.VK_F1, // Combat
                         KeyEvent.VK_F2, // Stats
+                        KeyEvent.VK_F3, // Quest
                         KeyEvent.VK_F4, // Inventory
-                        KeyEvent.VK_F2, // Stats
-                        KeyEvent.VK_F4, // Inventory
-                        KeyEvent.VK_F8, // Friends
+                        KeyEvent.VK_F5, // Prayer
+                        KeyEvent.VK_F6, // Magic
                 };
 
-                int randomIndex = Random.nextInt(TAB_KEYS.length);
-                int tabKey = TAB_KEYS[randomIndex];
+                int tab = tabs[Random.nextInt(0, tabs.length)];
+                Keyboard.pressKey(tab);
+                Execution.delay(Random.nextInt(100, 250));
+                Keyboard.releaseKey(tab);
+                System.out.println("📖 Switched tab: F" + (tab - KeyEvent.VK_F1 + 1));
 
-                Keyboard.pressKey(tabKey);
-                Execution.delay(Random.nextInt(100, 200));
-                Keyboard.releaseKey(tabKey);
-
-                System.out.println("🎹 Switched tab using F-key: F" + (randomIndex + 1));
-
-                // Optional: Add delay to simulate reading/interaction
-                Execution.delay(Random.nextInt(400, 800));
-
-                // 25% chance to switch back to inventory (F4)
-                if (Random.nextInt(4) == 0) {
+                if (Random.nextInt(0,10) < 3) { // 30% chance to return to inventory
                     Keyboard.pressKey(KeyEvent.VK_F4);
-                    Execution.delay(Random.nextInt(100, 200));
+                    Execution.delay(Random.nextInt(100, 250));
                     Keyboard.releaseKey(KeyEvent.VK_F4);
-                    System.out.println("↩️ Returned to Inventory (F4)");
+                    System.out.println("↩️ Returned to Inventory");
                 }
-            }
-            case 6 -> {
-                System.out.println("↩️ idling");
-                Execution.delay(Random.nextInt(6000, 13000));
-            }
+                break;
+
+            case 6: // Idle (AFK)
+                int delay = Random.nextInt(0, 30) < 2 ? Random.nextInt(30000, 60000) : Random.nextInt(6000, 15000);
+                System.out.println("😴 Idling for " + (delay / 1000) + "s");
+                Execution.delay(delay);
+                break;
         }
 
-        // Post-action delay
-        Execution.delay(Random.nextInt(200, 500));
+        // Post-action delay (variable)
+        Execution.delay(Random.nextInt(200, 1500));
     }
 }
-

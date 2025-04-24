@@ -18,7 +18,7 @@ public enum MiningLocation {
             new Coordinate(3296, 3284, 0), new Coordinate(3306, 3297, 0))), // Iron, Clay
 
     RIMMINGTON("Rimmington Mine", new Area.Rectangular(
-            new Coordinate(2972, 3232, 0), new Coordinate(2979, 3240, 0))), // Clay, Silver
+            new Coordinate(2965, 3233, 0), new Coordinate(2979, 3243, 0))), // Covers clay, tin, iron, silver
 
 //    FALADOR_SOUTH("Falador South Mine", new Area.Rectangular(
 //            new Coordinate(3052, 3307, 0), new Coordinate(3060, 3315, 0))), // Iron
