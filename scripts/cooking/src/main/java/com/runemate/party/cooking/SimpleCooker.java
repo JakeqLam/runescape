@@ -179,8 +179,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         if (cookingObject != null && cookingObject.isVisible()) {
             System.out.println("🍳 Cooking object found: " + cookingObject + ". Attempting to cook...");
 
-            // --- MISCLICK SIMULATION (20% chance) ---
-            if (Random.nextInt(0,11) < 2) {
+            // --- MISCLICK SIMULATION (9% chance) ---
+            if (Random.nextInt(0,100) < 9) {
                 System.out.println("🤖 Simulating misclick...");
                 // Click near but not on the object
                 Mouse.move(cookingObject.getPosition().randomize(3, 6));
@@ -204,8 +204,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                     // Random delay before pressing space (human hesitation)
                     Execution.delay(Random.nextInt(300, 800));
 
-                    // Simulate potential keypress fumble (10% chance)
-                    if (Random.nextInt(0,12) < 2) {
+                    // Simulate potential keypress fumble (4% chance)
+                    if (Random.nextInt(0,100) < 4) {
                         System.out.println("⌨️ Simulating keypress fumble...");
                         Keyboard.typeKey(KeyEvent.VK_SHIFT); // Wrong key
                         Execution.delay(Random.nextInt(200, 400));
