@@ -395,7 +395,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                 .results()
                 .nearest();
 
-        if (!movingToBank && (rock == null || !rock.isVisible()))
+        if (!movingToBank && rock == null)
             walkToMiningLocation();
 
         if (rock != null && !rock.isVisible() && !movingToBank && !movingToMiningArea) {
@@ -427,11 +427,11 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             // If player is idle (not mining or moving)
             if (player.getAnimationId() == -1 && !player.isMoving()) {
                 if (rock != null) {
-                    // Misclick simulation (15% chance)
-                    if (Random.nextInt(0,100) < 15) {
+                    // Misclick simulation (8% chance)
+                    if (Random.nextInt(0,100) < 8) {
                         System.out.println("🤖 Simulating misclick...");
                         // Click near the rock (but not on it)
-                        Mouse.move(rock.getPosition().randomize(5, 10)); // Offset by 5-10 pixels
+                        Mouse.move(rock.getPosition().randomize(3, 6)); // Offset by 5-10 pixels
                         Execution.delay(Random.nextInt(200, 500));
                         Mouse.click(Mouse.Button.LEFT);
                         Execution.delay(Random.nextInt(800, 1200)); // Pretend to realize mistake

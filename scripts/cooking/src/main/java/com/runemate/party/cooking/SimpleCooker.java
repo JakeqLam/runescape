@@ -183,7 +183,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             if (Random.nextInt(0,11) < 2) {
                 System.out.println("🤖 Simulating misclick...");
                 // Click near but not on the object
-                Mouse.move(cookingObject.getPosition().randomize(10, 15));
+                Mouse.move(cookingObject.getPosition().randomize(3, 6));
                 Execution.delay(Random.nextInt(200, 500));
                 Mouse.click(Mouse.Button.LEFT);
 

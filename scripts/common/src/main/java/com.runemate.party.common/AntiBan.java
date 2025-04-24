@@ -10,12 +10,15 @@ import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
+import com.runemate.game.api.hybrid.util.StopWatch;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
 
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 public class AntiBan {
@@ -42,8 +45,41 @@ public class AntiBan {
         switch (action) {
             case 0: // Camera Movement (Arrow Keys or Middle-Mouse)
                 if (Random.nextInt(0,10) < 3) { // 30% chance for middle-mouse drag
-                    Camera.concurrentlyTurnTo(Random.nextInt(0, 360), Random.nextInt(0, 90));
-                    System.out.println("🎥 Middle-mouse camera drag");
+                    int curYaw   = Camera.getYaw();
+                    double curP  = Camera.getPitch();
+                    System.out.printf("[Cam] current yaw=%d, pitch=%.2f%n", curYaw, curP);
+
+                    // 2) choose Δ but enforce |Δyaw| ≥ 30°, |Δpitch| ≥ 0.20
+                    int rawDy     = ThreadLocalRandom.current().nextInt(-45, 46);
+                    int dy        = (Math.abs(rawDy) < 30 ? (rawDy < 0 ? -30 : 30) : rawDy);
+                    double rawDp  = ThreadLocalRandom.current().nextDouble(-0.25, 0.26);
+                    double dp     = (Math.abs(rawDp) < 0.20 ? (rawDp < 0 ? -0.20 : 0.20) : rawDp);
+
+                    int tgtYaw   = (curYaw + dy + 360) % 360;
+                    double tgtP  = Math.max(0, Math.min(1, curP + dp));
+                    System.out.printf("[Cam] target yaw=%d (Δ%+d), pitch=%.2f (Δ%+.2f)%n",
+                            tgtYaw, dy, tgtP, dp);
+
+                    // 3) async turn (tolerance only affects “when to stop”)
+                    double tol = ThreadLocalRandom.current().nextDouble(0.05, 0.15);
+                    System.out.printf("[Cam] turning tol=%.2f%n", tol);
+                    Camera.concurrentlyTurnTo(tgtYaw, tgtP, tol);  // built-in micro-jitter :contentReference[oaicite:0]{index=0}
+
+                    // 4) wait 500–800ms or until done
+                    Execution.delayUntil(
+                            () -> !Camera.isTurning(),
+                            () -> false,
+                            500, 800
+                    );                                              // yields to RM loop :contentReference[oaicite:1]{index=1}
+
+                    // 5) log result
+                    int finYaw   = Camera.getYaw();
+                    double finP  = Camera.getPitch();
+                    int diffYaw  = Math.min(Math.abs(finYaw - tgtYaw), 360 - Math.abs(finYaw - tgtYaw));
+                    double diffP = Math.abs(finP - tgtP);
+                    boolean ok   = diffYaw <= tol * 360 && diffP <= tol;
+                    System.out.printf("[Cam] final yaw=%d, pitch=%.2f → Δyaw=%d, Δpitch=%.2f → %s%n",
+                            finYaw, finP, diffYaw, diffP, ok ? "OK" : "MISS");
                 } else { // 70% chance for arrow keys
                     int[][] keyCombos = {
                             {KeyEvent.VK_LEFT},
