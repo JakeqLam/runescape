@@ -205,7 +205,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                     Execution.delay(Random.nextInt(300, 800));
 
                     // Simulate potential keypress fumble (10% chance)
-                    if (Random.nextInt(0,11) < 0.1) {
+                    if (Random.nextInt(0,12) < 2) {
                         System.out.println("⌨️ Simulating keypress fumble...");
                         Keyboard.typeKey(KeyEvent.VK_SHIFT); // Wrong key
                         Execution.delay(Random.nextInt(200, 400));
