@@ -15,7 +15,7 @@ public interface FisherSettings extends Settings {
 
     @Setting(key = "spot", title = "Fishing Spot", order = 2)
     default FishingSpot getSpot() {
-        return FishingSpot.LUMBRIDGE_SWAMP; // options: DRAYNOR, CATHERBY
+        return FishingSpot.DRAYNOR; // options: DRAYNOR, CATHERBY
     }
 
     @Setting(key = "breakMinLength", title = "Break Length Min (sec)", order = 3)

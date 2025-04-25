@@ -32,11 +32,11 @@ public class AntiBan {
         // Weighted action pool (more entries = higher chance)
         int[] weightedActions = {
                 0, 0, 0, 0, 0, 0, // Camera movement (most common)
-                1, 1,             // Hover player
-                2, 2,             // Hover NPC
+                1,             // Hover player
+                2,             // Hover NPC
                 3, 3, 3, 3,       // Move mouse (gradual)
                 4,                // Camera zoom
-                5, 5,          // Tab switching
+                5,          // Tab switching
                 6, 6, 6        // Idle (AFK)
         };
 

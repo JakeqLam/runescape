@@ -59,6 +59,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     private AntiBan antiBan;
     private boolean settingsConfirmed;
     private long nextBreakTime;
+    boolean isFishingInLumbridge;
 
     @Override
     public void onStart(String... args) {
@@ -66,6 +67,8 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         getEventDispatcher().addListener(this);
         pathfinder = Pathfinder.create(this);
         scheduleNextBreak();
+        // Check if Lumbridge is the fishing spot
+        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
         System.out.println("[SimpleFisher] Started");
     }
 
@@ -74,6 +77,8 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         if (!settingsConfirmed) return;
         Player player = Players.getLocal();
         if (player == null) return;
+
+        System.out.println("Player pos: "  + player.getPosition());
 
         // Break logic
         if (System.currentTimeMillis() >= nextBreakTime) {
@@ -185,9 +190,6 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     }
 
     private void walkToAndDeposit() {
-        // Check if Lumbridge is the fishing spot
-        boolean isFishingInLumbridge = settings.getSpot().getArea().contains(Players.getLocal().getPosition());
-
         Area closestBank;
         if (isFishingInLumbridge) {
             // Explicitly set Lumbridge Bank if fishing in Lumbridge
@@ -207,7 +209,6 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         // Interact with bank booth/chest
         GameObject bank = GameObjects.newQuery()
                 .actions("Bank")
-                .within(closestBank)
                 .results()
                 .nearest();
 
@@ -245,6 +246,6 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     }
 
     @Override public void onStop() { System.out.println("[SimpleFisher] Stopped."); }
-    @Override public void onSettingChanged(SettingChangedEvent e) { /* live update if needed */ }
+    @Override public void onSettingChanged(SettingChangedEvent e) {        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP); }
     @Override public void onSettingsConfirmed() { settingsConfirmed = true; }
 }
