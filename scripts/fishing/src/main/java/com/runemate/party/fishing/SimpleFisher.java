@@ -77,9 +77,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         if (!settingsConfirmed) return;
         Player player = Players.getLocal();
         if (player == null) return;
-
-        System.out.println("Player pos: "  + player.getPosition());
-
+        
         // Break logic
         if (System.currentTimeMillis() >= nextBreakTime) {
             int length = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
