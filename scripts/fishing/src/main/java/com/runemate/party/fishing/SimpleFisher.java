@@ -181,8 +181,15 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 ).randomize(1,1);
                 Path fn = pathfinder.pathBuilder().destination(oneThird)
                         .avoidWilderness(true).preferAccuracy().findPath();
-                if (fn != null && fn.isValid()) fn.step();
+                if (fn != null && fn.isValid())
+                    fn.step();
+                else {
+                    System.out.println("[SimpleFisher] zooming out");
+                    antiBan.rotateCamera();
+                    Execution.delay(Random.nextInt(100, 300));
+                }
                 Execution.delay(800,1500);
+
             }
         }
     }
