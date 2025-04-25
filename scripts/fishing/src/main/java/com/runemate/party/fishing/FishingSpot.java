@@ -18,8 +18,8 @@ public enum FishingSpot {
             new Coordinate(2815, 3441, 0)
     )),
     LUMBRIDGE_SWAMP("Lumbridge Swamp Fishing", new Area.Rectangular(
-            new Coordinate(3241, 3149, 0),
-            new Coordinate(3249, 3159, 0)
+            new Coordinate(3235, 3145, 0), // Extend northwest
+            new Coordinate(3255, 3165, 0)  // Extend northeast/southeast
     )),
 //    AL_KHARID_RIVER("Al Kharid River Bank", new Area.Rectangular(
 //            new Coordinate(3266, 3139, 0),  // Southwest corner
