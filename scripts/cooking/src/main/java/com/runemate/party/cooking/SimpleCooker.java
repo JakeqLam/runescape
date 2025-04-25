@@ -179,8 +179,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         if (cookingObject != null && cookingObject.isVisible()) {
             System.out.println("🍳 Cooking object found: " + cookingObject + ". Attempting to cook...");
 
-            // --- MISCLICK SIMULATION (9% chance) ---
-            if (Random.nextInt(0,100) < 9) {
+            // --- MISCLICK SIMULATION (15% chance) ---
+            if (Random.nextInt(0,100) < 15) {
                 System.out.println("🤖 Simulating misclick...");
                 // Click near but not on the object
                 Mouse.move(cookingObject.getPosition().randomize(3, 6));
@@ -234,7 +234,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                             }
 
                             // Small chance of early exit (like misclick)
-                            if (Random.nextInt(0,100) < 5) {
+                            if (Random.nextInt(0,100) < 15) {
                                 System.out.println("🚪 Simulating early exit");
                                 break;
                             }
@@ -249,7 +249,9 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
 
         } else {
             System.out.println("🚶 Cooking object not found or not visible. Walking to cooking area.");
-            walkTo(cookingArea.getCenter());
+            if (!cookingArea.contains(Players.getLocal())) {
+                walkTo(cookingArea);
+            }
             Execution.delay(Random.nextInt(600, 1200));
         }
     }
@@ -263,27 +265,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             return;
         }
 
-        // Use your walkTo method to reach the bank
-        walkTo(closestBank.getCenter());
-
-        if (!Bank.isOpen()) {
-            System.out.println("🏦 Bank is closed. Attempting to open bank.");
-            Execution.delay(Random.nextInt(400, 800));
-
-            GameObject bank = GameObjects.newQuery().actions("Bank").results().nearest();
-            if (bank != null) {
-                Execution.delay(Random.nextInt(500, 1000)); // Simulate hesitation
-                if (bank.interact("Bank")) {
-                    Execution.delayUntil(Bank::isOpen, 2000, 5000);
-                } else {
-                    System.out.println("⚠️ Failed to interact with bank object.");
-                    return;
-                }
-            } else {
-                System.out.println("❌ No bank object found nearby.");
-                return;
-            }
-        }
+        if (!closestBank.contains(Players.getLocal()))
+            walkTo(closestBank);
 
         if (Bank.isOpen()) {
             System.out.println("✅ Bank opened. Depositing inventory.");
@@ -308,26 +291,38 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             Bank.close();
 
             Execution.delay(Random.nextInt(400, 1000)); // Short pause after interaction
+        } else  {
+            System.out.println("🏦 Bank is closed. Attempting to open bank.");
+            Execution.delay(Random.nextInt(400, 800));
+
+            GameObject bank = GameObjects.newQuery().actions("Bank").results().nearest();
+            if (bank != null) {
+                Execution.delay(Random.nextInt(2500, 3500)); // Simulate hesitation
+                if (bank.interact("Bank")) {
+                    Execution.delayUntil(Bank::isOpen, 2000, 5000);
+                } else {
+                    System.out.println("⚠️ Failed to interact with bank object.");
+                    return;
+                }
+            } else {
+                System.out.println("❌ No bank object found nearby.");
+                return;
+            }
         }
+
     }
 
-    private void walkTo(Coordinate destination) {
+    private void walkTo(Area targetArea) {
         final int MAX_ATTEMPTS = 5;
         int attempts = 0;
         boolean reached = false;
 
-        Area targetArea = new Area.Rectangular(destination, destination);
-        Coordinate target = destination;
-
-        if (targetArea.contains(Players.getLocal())) {
-            System.out.println("✅ Already in the cooking area.");
-            return;
-        }
+        Coordinate destination = targetArea.getCenter();
 
         System.out.println("📍 Attempting to walk to: " + destination);
 
         while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
-            target = attempts < 3 ? getRandomNearbyCoordinate(destination, 1) : destination;
+            Coordinate target = attempts < 3 ? targetArea.getRandomCoordinate() : destination;
 
             Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
                     .destination(target)

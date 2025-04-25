@@ -224,6 +224,14 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 Bank.depositInventory();
                 System.out.println("[SimpleFisher] Deposited all items");
             }
+
+            // Always close the bank after depositing
+            if (Bank.isOpen()) {
+                Bank.close();
+                // Add short delay to account for bank closure animation
+                Execution.delay(300, 600);
+            }
+
             Execution.delayUntil(() -> !Bank.isOpen(), 1000, 3000);
             System.out.println("[SimpleFisher] Deposit complete, closing bank");
         } else {
