@@ -83,7 +83,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             scheduleNextBreak();
         }
 
-        if (Random.nextInt(100) < 5) { // 5% chance
+        if (Random.nextInt(100) < 10) { // 10% chance
             System.out.println("Performing anti-ban action.");
             antiBan.performAntiBan();
         }
@@ -95,7 +95,6 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             System.out.println("No raw food in inventory. Walking to bank to withdraw.");
             if (isAllFoodCooked()) {
                 System.out.println("All food cooked. Stopping bot.");
-                RuneScape.logout();
                stop();
                 return;
             }
@@ -123,10 +122,10 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         return false;
     }
 
-    public void fallBack(Coordinate target) {
+    public void fallBack(Area target) {
         // Fallback: Click a nearby walkable tile using Interactable
-        Path path = BresenhamPath.buildTo(target.randomize(10,10));
-        if (path != null) {
+        Path path = BresenhamPath.buildTo(target.getCenter().randomize(10,10));
+        if (path != null && !target.contains(Players.getLocal())) {
             path.step();
             Execution.delay(800, 1500);
         } else {
@@ -138,8 +137,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             }
 
             // Calculate 1/3rd point between start and target
-            int newX = start.getX() + (target.getX() - start.getX()) / 3;
-            int newY = start.getY() + (target.getY() - start.getY()) / 3;
+            int newX = start.getX() + (target.getCenter().getX() - start.getX()) / 3;
+            int newY = start.getY() + (target.getCenter().getY() - start.getY()) / 3;
             Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
 
             // Randomize slightly to avoid exact clicks
@@ -149,7 +148,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                     .enableHomeTeleport(false)
                     .avoidWilderness(true)
                     .preferAccuracy().findPath();
-            if (path != null && path.isValid()) {
+            if (path != null && path.isValid() && !target.contains(Players.getLocal())) {
                 if (path.step()) {
                     System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
                     Execution.delay(800, 1500);
@@ -180,16 +179,30 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             System.out.println("🍳 Cooking object found: " + cookingObject + ". Attempting to cook...");
 
             // --- MISCLICK SIMULATION (15% chance) ---
-            if (Random.nextInt(0,100) < 15) {
+            if (Random.nextInt(0, 100) < 15) {
                 System.out.println("🤖 Simulating misclick...");
-                // Click near but not on the object
-                Mouse.move(cookingObject.getPosition().randomize(3, 6));
-                Execution.delay(Random.nextInt(200, 500));
-                Mouse.click(Mouse.Button.LEFT);
 
-                // Realize mistake and correct
-                Execution.delay(Random.nextInt(800, 1200));
-                System.out.println("🔄 Correcting misclick...");
+                // Misclick near the object but still inside the building
+                Coordinate objectTile = cookingObject.getPosition();
+                Coordinate misclickTile = null;
+
+                int tries = 0;
+                while (misclickTile == null && tries < 10) {
+                    Coordinate attempt = objectTile.randomize(2, 2);
+                    if (cookingArea.contains(attempt)) {
+                        misclickTile = attempt;
+                    }
+                    tries++;
+                }
+
+                if (misclickTile != null) {
+                    Mouse.move(misclickTile);
+                    Execution.delay(Random.nextInt(150, 300));
+                    Mouse.click(Mouse.Button.LEFT);
+
+                    Execution.delay(Random.nextInt(800, 1200));
+                    System.out.println("🔄 Correcting misclick...");
+                }
             }
 
             // --- MAIN COOKING LOGIC ---
@@ -273,7 +286,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             Execution.delay(Random.nextInt(300, 800));
             Bank.depositInventory();
 
-            Execution.delay(Random.nextInt(300, 800)); // Delay before withdrawal
+            Execution.delay(Random.nextInt(1000, 2400)); // Delay before withdrawal
             String rawFoodName = settings.getFoodType().getRawName();
             System.out.println("🎣 Withdrawing raw food: " + rawFoodName);
             Bank.withdraw(rawFoodName, 28);
@@ -337,7 +350,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                 System.out.println("✅ Found valid path. Walking to: " + target);
                 while (!targetArea.contains(Players.getLocal()) && path.step()) {
                     Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    if (Random.nextInt(100) < 3) {
+                    if (Random.nextInt(100) < 6) {
                         antiBan.performAntiBan();
                     }
                     Execution.delay(800, 1500);
@@ -359,7 +372,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             System.out.println("✅ Arrived at destination: " + destination);
         } else {
             System.out.println("❌ Failed to reach destination after " + MAX_ATTEMPTS + " attempts. Using fallback.");
-            fallBack(destination);
+            fallBack(targetArea);
         }
     }
 
@@ -377,6 +390,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
 
     @Override
     public void onStop() {
+        RuneScape.logout();
         System.out.println("Cooker stopped.");
     }
 
