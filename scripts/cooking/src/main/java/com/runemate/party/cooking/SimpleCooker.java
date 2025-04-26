@@ -247,7 +247,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                             }
 
                             // Small chance of early exit (like misclick)
-                            if (Random.nextInt(0,100) < 5) {
+                            if (Random.nextInt(0,100) < 3) {
                                 System.out.println("🚪 Simulating early exit");
                                 break;
                             }
@@ -278,9 +278,6 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             return;
         }
 
-        if (!closestBank.contains(Players.getLocal()))
-            walkTo(closestBank);
-
         if (Bank.isOpen()) {
             System.out.println("✅ Bank opened. Depositing inventory.");
             Execution.delay(Random.nextInt(300, 800));
@@ -306,7 +303,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             Execution.delay(Random.nextInt(400, 1000)); // Short pause after interaction
         } else  {
             System.out.println("🏦 Bank is closed. Attempting to open bank.");
-            Execution.delay(Random.nextInt(1800, 2600));
+            Execution.delay(Random.nextInt(400, 800));
 
             GameObject bank = GameObjects.newQuery().actions("Bank").results().nearest();
             if (bank != null) {
@@ -322,6 +319,9 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                 return;
             }
         }
+
+        if (!closestBank.contains(Players.getLocal()))
+            walkTo(closestBank);
 
     }
 
