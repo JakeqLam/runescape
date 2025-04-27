@@ -58,7 +58,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         antiBan= new AntiBan();
         getEventDispatcher().addListener(this);
         // Populate initial values
-        nextBreakTime = System.currentTimeMillis() + (7000 * 1000);
+        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
         pathfinder = Pathfinder.create(this);
     }
 

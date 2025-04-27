@@ -120,7 +120,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         antiBan= new AntiBan();
         getEventDispatcher().addListener(this);
         // Populate initial values
-        nextBreakTime = System.currentTimeMillis() + (7000 * 1000);
+        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
         pathfinder = Pathfinder.create(this);
     }
 
@@ -431,7 +431,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     if (Random.nextInt(0,100) < 8) {
                         System.out.println("🤖 Simulating misclick...");
                         // Click near the rock (but not on it)
-                        Mouse.move(rock.getPosition().randomize(3, 6)); // Offset by 5-10 pixels
+                        Mouse.move(rock.getPosition().randomize(1, 3)); // Offset by 5-10 pixels
                         Execution.delay(Random.nextInt(200, 500));
                         Mouse.click(Mouse.Button.LEFT);
                         Execution.delay(Random.nextInt(800, 1200)); // Pretend to realize mistake

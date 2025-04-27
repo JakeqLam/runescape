@@ -66,7 +66,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         antiBan = new AntiBan();
         getEventDispatcher().addListener(this);
         pathfinder = Pathfinder.create(this);
-        scheduleNextBreak();
+        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
         // Check if Lumbridge is the fishing spot
         isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
         System.out.println("[SimpleFisher] Started");
