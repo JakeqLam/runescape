@@ -247,7 +247,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                             }
 
                             // Small chance of early exit (like misclick)
-                            if (Random.nextInt(0,100) < 3) {
+                            if (Random.nextInt(0,100) < 1) {
                                 System.out.println("🚪 Simulating early exit");
                                 break;
                             }

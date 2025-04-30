@@ -194,11 +194,17 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             System.out.println("✅ Reached the mining area.");
         } else {
             System.out.println("❌ Failed to reach the mining area after " + MAX_ATTEMPTS + " attempts.");
-            fallBack(target);
+            fallBack(miningArea);
         }
     }
 
-    public void fallBack(Coordinate target) {
+    public void fallBack(Area area) {
+        Coordinate target = area.getCenter();
+        if (area.contains(Players.getLocal())) {
+            System.out.println("✅ Already in the mining area.");
+            return;
+        }
+
         // Fallback: Click a nearby walkable tile using Interactable
         Path path = BresenhamPath.buildTo(target.randomize(10,10));
         if (path != null) {
@@ -318,7 +324,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                 System.out.println("✅ Arrived at the bank.");
             } else {
                 System.out.println("❌ Failed to reach the bank after " + MAX_ATTEMPTS + " attempts.");
-                fallBack(target);
+                fallBack(closestBank);
             }
         }
 
