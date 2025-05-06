@@ -1,27 +1,44 @@
 package com.runemate.party.common;
 
 import com.runemate.game.api.hybrid.entities.GameObject;
+import com.runemate.game.api.hybrid.entities.Item;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
+import com.runemate.game.api.hybrid.entities.details.Interactable;
 import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
+import com.runemate.game.api.hybrid.local.Screen;
+import com.runemate.game.api.hybrid.local.Skill;
+import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceComponent;
+import com.runemate.game.api.hybrid.local.hud.interfaces.Interfaces;
+import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Coordinate;
+import com.runemate.game.api.hybrid.queries.InterfaceComponentQueryBuilder;
+import com.runemate.game.api.hybrid.queries.results.SpriteItemQueryResults;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.StopWatch;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
+import javafx.scene.input.MouseButton;
+
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class AntiBan {
+
+    private static final int STATS_GROUP_ID = 320;  // Skills tab group
+    private static final int TABS_GROUP_ID = 164;   // Bottom tab group
 
     private long lastZoomTime = 0;
     private long lastCameraMoveTime = 0;
@@ -95,12 +112,12 @@ public class AntiBan {
 
         // Weighted action pool (more entries = higher chance)
         int[] weightedActions = {
-                0, 0, 0, 0, 0, 0, // Camera movement (most common)
-                1,             // Hover player
-                2,             // Hover NPC
+                0, 0, 0, 0, 0, // Camera movement (most common)
+                1, 1,             // Hover player
+                2, 2,            // Hover NPC
                 3, 3, 3, 3,       // Move mouse (gradual)
                 4,                // Camera zoom
-                5,          // Tab switching
+                5,        // tab switching
                 6, 6, 6        // Idle (AFK)
         };
 
@@ -172,6 +189,12 @@ public class AntiBan {
                     Mouse.move(player);
                     System.out.println("👤 Hovered player: " + player.getName());
                     Execution.delay(Random.nextInt(300, 800));
+
+                    if (Random.nextInt(0, 5) == 0) { // ~20% chance to right-click
+                        Mouse.click(Mouse.Button.RIGHT); // Right-click
+                        System.out.println("🖱️ Right-clicked player.");
+                        Execution.delay(Random.nextInt(200, 400));
+                    }
                 }
                 break;
 
@@ -181,6 +204,12 @@ public class AntiBan {
                     Mouse.move(npc);
                     System.out.println("🧟 Hovered NPC: " + npc.getName());
                     Execution.delay(Random.nextInt(300, 800));
+
+                    if (Random.nextInt(0, 5) == 0) { // ~20% chance to right-click
+                        Mouse.click(Mouse.Button.RIGHT); // Right-click
+                        System.out.println("🖱️ Right-clicked NPC.");
+                        Execution.delay(Random.nextInt(200, 400));
+                    }
                 }
                 break;
 
@@ -212,30 +241,19 @@ public class AntiBan {
                 }
                 break;
 
-            case 5: // Tab Switching (F-Keys)
-                int[] tabs = {
-                        KeyEvent.VK_F1, // Combat
-                        KeyEvent.VK_F2, // Stats
-                        KeyEvent.VK_F3, // Quest
-                        KeyEvent.VK_F4, // Inventory
-                        KeyEvent.VK_F5, // Prayer
-                        KeyEvent.VK_F6, // Magic
-                };
+            case 5: // Enhanced Tab Switching & Interface Interaction
+                boolean goToInventory = Random.nextBoolean();
 
-                int tab = tabs[Random.nextInt(0, tabs.length)];
-                Keyboard.pressKey(tab);
-                Execution.delay(Random.nextInt(100, 250));
-                Keyboard.releaseKey(tab);
-                System.out.println("📖 Switched tab: F" + (tab - KeyEvent.VK_F1 + 1));
-
-                if (Random.nextInt(0,10) < 3) { // 30% chance to return to inventory
-                    Keyboard.pressKey(KeyEvent.VK_F4);
-                    Execution.delay(Random.nextInt(100, 250));
-                    Keyboard.releaseKey(KeyEvent.VK_F4);
-                    System.out.println("↩️ Returned to Inventory");
+                if (goToInventory) {
+                    Keyboard.pressKey(KeyEvent.VK_F1); // Inventory
+                    System.out.println("📂 Switched to Inventory tab.");
+                } else {
+                    Keyboard.pressKey(KeyEvent.VK_F2); // Skills
+                    System.out.println("📊 Switched to Skills tab.");
                 }
-                break;
 
+                Execution.delay(Random.nextInt(400, 1200)); // Random human-like delay
+                break;
             case 6: // Idle (AFK)
                 int delay = Random.nextInt(0, 30) < 2 ? Random.nextInt(30000, 60000) : Random.nextInt(6000, 15000);
                 System.out.println("😴 Idling for " + (delay / 1000) + "s");
@@ -245,5 +263,12 @@ public class AntiBan {
 
         // Post-action delay (variable)
         Execution.delay(Random.nextInt(200, 1500));
+    }
+
+    private static Point getClickablePoint(Rectangle bounds) {
+        if (bounds == null) return null;
+        int x = Random.nextInt(bounds.x + 2, bounds.x + bounds.width - 2);
+        int y = Random.nextInt(bounds.y + 2, bounds.y + bounds.height - 2);
+        return new Point(x, y);
     }
 }

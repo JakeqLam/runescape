@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$/scripts/combat" />
             <option value="$PROJECT_DIR$/scripts/common" />
             <option value="$PROJECT_DIR$/scripts/cooking" />
+            <option value="$PROJECT_DIR$/scripts/crafting" />
             <option value="$PROJECT_DIR$/scripts/fishing" />
             <option value="$PROJECT_DIR$/scripts/mining" />
           </set>

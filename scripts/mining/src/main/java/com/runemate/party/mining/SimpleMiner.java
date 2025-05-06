@@ -114,6 +114,23 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
     private Pathfinder pathfinder;
 
+    private long lastAntiBanTime = 0;
+    private long nextAntiBanCooldown = getRandomCooldown();
+
+    private long getRandomCooldown() {
+        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
+    }
+
+    private void maybePerformAntiBan() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
+            System.out.println("[SimpleFisher] Performing anti-ban");
+            antiBan.performAntiBan();
+            lastAntiBanTime = currentTime;
+            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
+        }
+    }
+
     @Override
     public void onStart(String... args) {
         // Initialize settings UI and listener
@@ -170,8 +187,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     } else {
                         failedSteps = 0; // Reset if stepping works
                         System.out.println("Pathing success");
-                        if (Random.nextInt(100) < 2)  // 2% chance
-                            antiBan.performAntiBan();
+                        maybePerformAntiBan();
                     }
 
                     Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
@@ -303,8 +319,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     while (!closestBank.contains(Players.getLocal()) && path.step()) {
                         System.out.println("Pathing success");
                         Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                        if (Random.nextInt(100) < 2)  // 2% chance
-                            antiBan.performAntiBan();
+                        maybePerformAntiBan();
                         Execution.delay(800, 1500);
                     }
 
@@ -383,9 +398,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             walkToAndOpenBank();
         }
 
-        if (Random.nextInt(100) < 3) { // 3% chance
-            antiBan.performAntiBan();
-        }
+        maybePerformAntiBan();
 
         Player player = Players.getLocal();
         if (player == null) {

@@ -53,6 +53,23 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
             new Coordinate(2615, 3332, 0)    // Ardougne West
     };
 
+    private long lastAntiBanTime = 0;
+    private long nextAntiBanCooldown = getRandomCooldown();
+
+    private long getRandomCooldown() {
+        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
+    }
+
+    private void maybePerformAntiBan() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
+            System.out.println("[SimpleFisher] Performing anti-ban");
+            antiBan.performAntiBan();
+            lastAntiBanTime = currentTime;
+            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
+        }
+    }
+
     private boolean shouldMisclick() {
         return Random.nextInt(100) < 5; // 5% chance to misclick
     }
@@ -177,10 +194,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         }
 
         // Anti-ban randomly
-        if (Random.nextInt(100) < 3) {
-            System.out.println("[SimpleFighter] Performing anti-ban");
-            antiBan.performAntiBan();
-        }
+        maybePerformAntiBan();
 
         if (settings.shouldUpdateLocation()) {
             Coordinate current = Players.getLocal().getPosition();
@@ -232,7 +246,6 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                 return;
             } else {
                 Camera.turnTo(loot);
-                openObstacle();
             }
         }
 

@@ -52,6 +52,23 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         cookingLocationToBank.put(CookingLocation.COOKING_GUILD, new Area.Rectangular(new Coordinate(3209, 3217, 1), new Coordinate(3211, 3215, 1))); // Cooking Guild Bank
     }
 
+    private long lastAntiBanTime = 0;
+    private long nextAntiBanCooldown = getRandomCooldown();
+
+    private long getRandomCooldown() {
+        return Random.nextInt(10_000, 65_000); // Between 10s and 65s
+    }
+
+    private void maybePerformAntiBan() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
+            System.out.println("[SimpleFisher] Performing anti-ban");
+            antiBan.performAntiBan();
+            lastAntiBanTime = currentTime;
+            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
+        }
+    }
+
     @Override
     public void onStart(String... args) {
         // Initialize settings UI and listener
@@ -83,10 +100,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             scheduleNextBreak();
         }
 
-        if (Random.nextInt(100) < 10) { // 10% chance
-            System.out.println("Performing anti-ban action.");
-            antiBan.performAntiBan();
-        }
+        maybePerformAntiBan();
 
         if (Inventory.contains(settings.getFoodType().getRawName())) {
             System.out.println("Raw food found in inventory. Proceeding to cook.");
@@ -241,10 +255,8 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                         while (Players.getLocal().getAnimationId() != -1) {
                             Execution.delay(Random.nextInt(1000, 2000));
 
-                            // Anti-ban during cooking (5% chance)
-                            if (Random.nextInt(0,100) < 5) {
-                                antiBan.performAntiBan();
-                            }
+                            // Anti-ban
+                            maybePerformAntiBan();
 
                             // Small chance of early exit (like misclick)
                             if (Random.nextInt(0,100) < 1) {
@@ -350,9 +362,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                 System.out.println("✅ Found valid path. Walking to: " + target);
                 while (!targetArea.contains(Players.getLocal()) && path.step()) {
                     Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    if (Random.nextInt(100) < 6) {
-                        antiBan.performAntiBan();
-                    }
+                    maybePerformAntiBan();
                     Execution.delay(800, 1500);
                 }
 
