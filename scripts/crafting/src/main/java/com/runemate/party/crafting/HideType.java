@@ -1,32 +1,35 @@
 package com.runemate.party.crafting;
 
 public enum HideType {
-    COWHIDE("Cowhide", "Soft leather", 1),
-    HARD_LEATHER("Cowhide", "Hard leather", 3),
-    GREEN_DRAGONHIDE("Green dragonhide", "Green d'hide", 20),
-    BLUE_DRAGONHIDE("Blue dragonhide", "Blue d'hide", 20),
-    RED_DRAGONHIDE("Red dragonhide", "Red d'hide", 20),
-    BLACK_DRAGONHIDE("Black dragonhide", "Black d'hide", 20);
+    SOFT_LEATHER("Soft leather", "Cowhide", 124),
+    HARD_LEATHER("Hard leather", "Cowhide", 125),
+    SNAKESKIN_1("Snakeskin", "Snake hide", 126),   // 20 coins
+    SNAKESKIN_2("Snakeskin", "Snake hide", 127),   // 15 coins
+    GREEN_DHIDE("Green d'hide", "Green dragonhide", 128),
+    BLUE_DHIDE("Blue d'hide", "Blue dragonhide", 129),
+    RED_DHIDE("Red d'hide", "Red dragonhide", 130),
+    BLACK_DHIDE("Black d'hide", "Black dragonhide", 131);
 
-    private final String rawName;
     private final String tannedName;
-    private final int cost;
+    private final String rawName;
+    private final int componentId;
 
-    HideType(String rawName, String tannedName, int cost) {
-        this.rawName = rawName;
+    HideType(String tannedName, String rawName, int componentId) {
         this.tannedName = tannedName;
-        this.cost = cost;
-    }
-
-    public String getRawName() {
-        return rawName;
+        this.rawName = rawName;
+        this.componentId = componentId;
     }
 
     public String getTannedName() {
         return tannedName;
     }
 
-    public int getCost() {
-        return cost;
+    public String getRawName() {
+        return rawName;
     }
+
+    public int getComponentId() {
+        return componentId;
+    }
+
 }

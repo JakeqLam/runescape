@@ -1,12 +1,11 @@
 package com.runemate.party.crafting;
 
-import com.runemate.commons.internal.hud.components.Widget;
 import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.Item;
-import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
-import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
-import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceComponent;
-import com.runemate.game.api.hybrid.local.hud.interfaces.Interfaces;
+import com.runemate.game.api.hybrid.entities.Npc;
+import com.runemate.game.api.hybrid.input.Keyboard;
+import com.runemate.game.api.hybrid.local.Camera;
+import com.runemate.game.api.hybrid.local.hud.interfaces.*;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.location.navigation.Path;
@@ -23,6 +22,8 @@ import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import com.runemate.game.api.hybrid.input.Mouse;
 
+import java.awt.event.KeyEvent;
+
 public class GenericCrafter extends LoopingBot implements SettingsListener {
 
     @SettingsProvider(updatable = true)
@@ -31,6 +32,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     private Pathfinder pathfinder;
     private AntiBan antiBan;
     private long nextBreakTime;
+    private boolean settingsConfirmed;
 
     private static final String REQUIRED_GOLD_NAME = "Coins";
     private static final int REQUIRED_GOLD_AMOUNT = 20;
@@ -39,7 +41,18 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     private long nextAntiBanCooldown = getRandomCooldown();
 
     private long getRandomCooldown() {
-        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
+        return Random.nextInt(10_000, 80_000); // Between 10s and 100s
+    }
+
+    private boolean hasMaterialsForCrafting() {
+        return Inventory.contains("Needle") &&
+                Inventory.contains("Thread") &&
+                Inventory.contains(settings.getLeatherProduct().getHideType());
+    }
+
+    private boolean hasMaterialsForTanning() {
+        return Inventory.contains(settings.getHideType().getRawName()) &&
+                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT;
     }
 
     private void maybePerformAntiBan() {
@@ -69,12 +82,45 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
     @Override
     public void onLoop() {
+        if (!settingsConfirmed) {
+            return;
+        }
+
         System.out.println("Loop start.");
 
         if (!Players.getLocal().isVisible()) {
             System.out.println("Player not visible. Waiting...");
             Execution.delay(300, 600);
             return;
+        }
+
+        if (settings.isCraftingEnabled()) {
+            handleLeatherCrafting();
+        } else {
+            handleTanning();
+        }
+
+        // Anti-ban randomly
+        maybePerformAntiBan();
+
+        // Break logic
+        if (System.currentTimeMillis() >= nextBreakTime) {
+            int duration = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
+            System.out.println("[GenericCrafter] Taking break for " + duration + "s");
+            if (RuneScape.isLoggedIn()) RuneScape.logout(true);
+            Execution.delay(duration * 1000);
+            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
+            scheduleNextBreak();
+            return;
+        }
+
+        System.out.println("Loop end.");
+    }
+
+    private void handleTanning() {
+        if (!hasMaterialsForTanning()) {
+            System.out.println("[GenericCrafter] No more hides or coins available. Stopping bot.");
+            stop("No more materials to tan.");
         }
 
         boolean hasHide = Inventory.contains(settings.getHideType().getRawName());
@@ -144,27 +190,67 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
             return;
         }
 
-        // Tan hides
-        if (Inventory.contains(settings.getHideType().getRawName()) && Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT) {
+// Tan hides
+        if (Inventory.contains(settings.getHideType().getRawName()) &&
+                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT) {
+
             System.out.println("Trying to tan hides...");
 
-            var tanner = Npcs.newQuery().names("Ellis", "Sbott").actions("Trade").results().nearest();
-            if (tanner != null && tanner.interact("Trade")) {
-                System.out.println("Interacted with tanner NPC, waiting for interface...");
-                Execution.delayUntil(() -> Interfaces.newQuery().texts("Tan All").results().first() != null, 3000);
-
-                Execution.delayUntil(() -> Interfaces.newQuery().containers(324).results().first() != null, 3000);
-
-                InterfaceComponent hideComponent = Interfaces.newQuery()
-                        .containers(324) // Tanning interface container ID
-                        .actions("Tan All") // Looks for components with "Tan All" right-click option
-                        .names(settings.getHideType().getTannedName()) // Match the tanned hide name, e.g., "Green dragon leather"
+            // Try up to 3 times to find the tanner
+            Npc tanner = null;
+            for (int i = 0; i < 3 && tanner == null; i++) {
+                tanner = Npcs.newQuery()
+                        .names("Ellis", "Sbott")
                         .results()
-                        .first();
+                        .nearest();
 
-                if (hideComponent != null && hideComponent.interact("Tan All")) {
+                if (tanner == null) {
+                    System.out.println("Attempt " + (i + 1) + ": Tanner not found, retrying...");
+                    Execution.delay(2000, 3500);
+                }
+            }
+
+            if (tanner != null) {
+                System.out.println("Interacted with tanner NPC, waiting for interface...");
+
+                // Extra wait to ensure full load
+                Execution.delay(500, 800);
+
+                if (!tanner.isVisible()) {
+                    Camera.turnTo(tanner);
+                    Execution.delay(500, 800);
+                }
+
+                if (Players.getLocal().distanceTo(tanner) > 5) {
+                    tanner.getPosition().interact("Walk here");
+                    Npc finalTanner = tanner;
+                    Execution.delayUntil(() -> Players.getLocal().distanceTo(finalTanner.getPosition()) <= 4, 3000);
+                }
+
+                boolean interacted = false;
+                for (int i = 0; i < 3 && !interacted; i++) {
+                    interacted = tanner.interact("Trade");
+                    if (!interacted) {
+                        System.out.println("Failed to interact on attempt " + (i + 1));
+                        Execution.delay(500, 1000);
+                    }
+                }
+
+                if (!interacted) {
+                    System.out.println("❌ Failed to interact with tanner after retries.");
+                    return;
+                }
+
+                Execution.delay(2000, 3500);
+
+                InterfaceComponent hideComponent = Interfaces.getAt(324, settings.getHideType().getComponentId());
+                Execution.delay(400, 700);
+
+                if (hideComponent != null && hideComponent.isVisible() && hideComponent.interact("Tan All")) {
                     System.out.println("Clicked 'Tan All' on " + settings.getHideType().getTannedName());
-                    Execution.delayUntil(() -> !Inventory.contains(settings.getHideType().getRawName()), 5000);
+                    Execution.delayUntil(() ->
+                            !Inventory.contains(settings.getHideType().getRawName()), 5000);
+
                     System.out.println("Tanning completed.");
                     Execution.delay(Random.nextInt(500, 800), Random.nextInt(800, 1200));
 
@@ -173,7 +259,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
                         misclickNear(tanner.getPosition());
                     }
                 } else {
-                    System.out.println("Could not find or interact with tanned hide option.");
+                    System.out.println("Failed to interact with 'Tan All' option.");
                 }
             } else {
                 System.out.println("Tanner NPC not found or interaction failed.");
@@ -184,22 +270,106 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         System.out.println("Tanning complete, walking back to the bank...");
         while (!BANK_AREA.contains(Players.getLocal()))
             walkToArea(BANK_AREA);
+    }
 
-        // Anti-ban randomly
-        maybePerformAntiBan();
+    private void handleLeatherCrafting() {
 
-        // Break logic
-        if (System.currentTimeMillis() >= nextBreakTime) {
-            int duration = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
-            System.out.println("[GenericCrafter] Taking break for " + duration + "s");
-            if (RuneScape.isLoggedIn()) RuneScape.logout(true);
-            Execution.delay(duration * 1000);
-            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
-            scheduleNextBreak();
+        Execution.delay(2000, 4000);
+
+        LeatherProduct type = settings.getLeatherProduct();
+        String leatherName = type.getHideType();
+
+        if (!Inventory.contains("Needle") || !Inventory.contains("Thread") || !Inventory.contains(leatherName)) {
+            System.out.println("Missing materials. Banking...");
+            bankForLeatherCrafting(leatherName);
             return;
         }
 
-        System.out.println("Loop end.");
+        SpriteItem needle = Inventory.getItems("Needle").first();
+        SpriteItem leather = Inventory.getItems(i -> i.getDefinition().getName().equals(leatherName)).first();
+
+        if (needle != null && leather != null) {
+            // Use needle
+            if (needle.interact("Use")) {
+                Execution.delayUntil(() -> Inventory.isItemSelected(), 500, 1500);
+
+                // Use it on the leather
+                if (leather.interact("Use")) {
+                    Execution.delayUntil(() -> {
+                        InterfaceComponent chatbox = Interfaces.newQuery().textContains("chaps", "vambraces", "cowl").results().first();
+                        return chatbox != null && chatbox.isVisible();
+                    }, 2500, 3800);
+
+                    // Simulate selecting the correct product based on the LeatherProduct
+                    switch (type) {
+                        case GLOVES:
+                            Keyboard.pressKey(KeyEvent.VK_1); // Select Gloves
+                            break;
+                        case BOOTS:
+                            Keyboard.pressKey(KeyEvent.VK_2); // Select Boots
+                            break;
+                        case COWL:
+                            Keyboard.pressKey(KeyEvent.VK_3); // Select Cowl
+                            break;
+                        case COIF:
+                            Keyboard.pressKey(KeyEvent.VK_4); // Select Coif
+                            break;
+                        case VAMBRACES:
+                            Keyboard.pressKey(KeyEvent.VK_5); // Select Vambraces
+                            break;
+                        case CHAPS:
+                            Keyboard.pressKey(KeyEvent.VK_6); // Select Chaps
+                            break;
+                        case BODY:
+                            Keyboard.pressKey(KeyEvent.VK_7); // Select Body
+                            break;
+                        case SHIELD:
+                            Keyboard.pressKey(KeyEvent.VK_8); // Select Shield
+                            break;
+                    }
+
+                    // Wait while crafting, periodically do antiban
+                    long startTime = System.currentTimeMillis();
+                    long duration = Random.nextInt(15000, 18000);
+                    while (System.currentTimeMillis() - startTime < duration) {
+                        Execution.delay(600, 1200);
+                        maybePerformAntiBan();
+                    }
+
+                }
+            }
+        }
+    }
+
+    private void bankForLeatherCrafting(String leatherName) {
+
+        if (!hasMaterialsForCrafting()) {
+            System.out.println("[GenericCrafter] No more materials to craft leather. Stopping bot.");
+            stop("Out of crafting materials.");
+        }
+
+        if (!Bank.isOpen()) {
+            if (!Bank.open()) return;
+            Execution.delayUntil(Bank::isOpen, 2000);
+        }
+
+        Bank.depositInventory();
+
+        if (!Inventory.contains("Needle")) {
+            Bank.withdraw("Needle", 1);
+            Execution.delayUntil(() -> Inventory.contains("Needle"), 2000);
+        }
+
+        if (!Inventory.contains("Thread")) {
+            Bank.withdraw("Thread", 27);
+            Execution.delayUntil(() -> Inventory.contains("Thread"), 2000);
+        }
+
+        Bank.withdraw(leatherName, 26);
+        Execution.delayUntil(() -> Inventory.contains(leatherName), 2000);
+
+        Bank.close();
+        Execution.delayUntil(() -> !Bank.isOpen(), 2000);
     }
 
     private void scheduleNextBreak() {
@@ -208,47 +378,107 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         System.out.println("[GenericCrafter] Next break in " + interval + "s");
     }
 
-    private void walkToArea(Area area) {
-        if (area.contains(Players.getLocal())) return;
+    private Coordinate getSafeCoordinateInside(Area area) {
 
-        System.out.println("[GenericCrafter] Walking to area: " + area);
+        if (pathfinder == null) {
+            return area.getCenter();
+        }
 
-        Coordinate destination = area.getRandomCoordinate();
-        Path path = pathfinder.pathBuilder()
-                .destination(destination)
-                .enableHomeTeleport(false)
-                .enableTeleports(false)
-                .preferAccuracy()
-                .findPath();
+        for (int i = 0; i < 10; i++) {
+            Coordinate candidate = area.getRandomCoordinate();
+            if (candidate != null) {
+                Path path = pathfinder.pathBuilder()
+                        .destination(candidate)
+                        .preferAccuracy()
+                        .findPath();
 
-        if (path != null && path.step()) {
-            System.out.println("[GenericCrafter] Path found using Pathfinder.");
-            Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1500);
-            Execution.delay(Random.nextInt(300, 600), Random.nextInt(600, 900));  // Added random delay
-        } else {
-            System.out.println("[GenericCrafter] Pathfinder failed, attempting Bresenham fallback...");
-
-            BresenhamPath fb = BresenhamPath.buildTo(destination);
-            if (fb != null && fb.step()) {
-                System.out.println("[GenericCrafter] Bresenham path successful.");
-                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1500);
-                Execution.delay(Random.nextInt(300, 600), Random.nextInt(600, 900));  // Added random delay
-            } else {
-                System.out.println("[GenericCrafter] Both pathfinding methods failed, clicking nearby random tile.");
-                Coordinate playerPos = Players.getLocal().getPosition();
-
-                for (int i = 0; i < 10; i++) {
-                    int dx = Random.nextInt(1, 3);
-                    int dy = Random.nextInt(1, 3);
-                    Coordinate randomTile = playerPos.randomize(dx, dy);
-
-                    if (randomTile.isReachable()) {
-                        randomTile.interact("Walk here");
-                        System.out.println("[GenericCrafter] Clicking fallback tile: " + randomTile);
-                        Execution.delayUntil(() -> Players.getLocal().isMoving(), 300, 1500);
-                        break;
-                    }
+                if (path != null && path.isValid()) {
+                    return candidate;
                 }
+            }
+        }
+
+        // Fallback to center if no valid coordinate was found
+        return area.getCenter();
+    }
+
+    private void walkToArea(Area targetArea) {
+        final int MAX_ATTEMPTS = 5;
+        int attempts = 0;
+        boolean reached = false;
+
+        System.out.println("📍 [GenericCrafter] Attempting to walk inside area: " + targetArea.getCenter());
+
+        while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
+            Coordinate target = getSafeCoordinateInside(targetArea);
+
+            Path path = pathfinder.pathBuilder()
+                    .destination(target)
+                    .enableHomeTeleport(false)
+                    .enableTeleports(false)
+                    .avoidWilderness(true)
+                    .preferAccuracy()
+                    .findPath();
+
+            if (path != null && path.isValid()) {
+                System.out.println("✅ Valid path to inside area: " + target);
+                path.step();
+                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+                Execution.delay(500, 1000);
+
+                if (targetArea.contains(Players.getLocal())) {
+                    reached = true;
+                    break;
+                }
+            } else {
+                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
+            }
+
+            attempts++;
+            Execution.delay(500, 1000);
+        }
+
+        if (!reached) {
+            System.out.println("❌ Failed to enter area after " + MAX_ATTEMPTS + " attempts. Falling back.");
+            fallBack(targetArea);
+        }
+    }
+
+    public void fallBack(Area target) {
+        // Fallback: Click a nearby walkable tile using Interactable
+        Path path = BresenhamPath.buildTo(target.getCenter().randomize(10,10));
+        if (path != null && !target.contains(Players.getLocal())) {
+            path.step();
+            Execution.delay(800, 1500);
+        } else {
+            Coordinate start = Players.getLocal().getPosition();
+
+            if (start == null) {
+                System.out.println("❌ Invalid start or target coordinate.");
+                return;
+            }
+
+            // Calculate 1/3rd point between start and target
+            int newX = start.getX() + (target.getCenter().getX() - start.getX()) / 3;
+            int newY = start.getY() + (target.getCenter().getY() - start.getY()) / 3;
+            Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
+
+            // Randomize slightly to avoid exact clicks
+            Coordinate destination = oneThird.randomize(1, 1);
+
+            path = pathfinder.pathBuilder().destination(destination)
+                    .enableHomeTeleport(false)
+                    .avoidWilderness(true)
+                    .preferAccuracy().findPath();
+            if (path != null && path.isValid() && !target.contains(Players.getLocal())) {
+                if (path.step()) {
+                    System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
+                    Execution.delay(800, 1500);
+                } else {
+                    System.out.println("⚠️ Failed to step to fallback destination.");
+                }
+            } else {
+                System.out.println("❌ Fallback path is invalid.");
             }
         }
     }
@@ -278,5 +508,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     public void onSettingChanged(SettingChangedEvent settingChangedEvent) {}
 
     @Override
-    public void onSettingsConfirmed() {}
+    public void onSettingsConfirmed() {
+        settingsConfirmed = true;
+    }
 }

@@ -275,7 +275,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         } else {
             System.out.println("🚶 Cooking object not found or not visible. Walking to cooking area.");
             if (!cookingArea.contains(Players.getLocal())) {
-                walkTo(cookingArea);
+                walkToArea(cookingArea);
             }
             Execution.delay(Random.nextInt(600, 1200));
         }
@@ -333,63 +333,74 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         }
 
         if (!closestBank.contains(Players.getLocal()))
-            walkTo(closestBank);
+            walkToArea(closestBank);
 
     }
 
-    private void walkTo(Area targetArea) {
+    private Coordinate getSafeCoordinateInside(Area area) {
+
+        if (pathfinder == null) {
+            return area.getCenter();
+        }
+
+        for (int i = 0; i < 10; i++) {
+            Coordinate candidate = area.getRandomCoordinate();
+            if (candidate != null) {
+                Path path = pathfinder.pathBuilder()
+                        .destination(candidate)
+                        .preferAccuracy()
+                        .findPath();
+
+                if (path != null && path.isValid()) {
+                    return candidate;
+                }
+            }
+        }
+
+        // Fallback to center if no valid coordinate was found
+        return area.getCenter();
+    }
+
+    private void walkToArea(Area targetArea) {
         final int MAX_ATTEMPTS = 5;
         int attempts = 0;
         boolean reached = false;
 
-        Coordinate destination = targetArea.getCenter();
-
-        System.out.println("📍 Attempting to walk to: " + destination);
+        System.out.println("📍 [GenericCrafter] Attempting to walk inside area: " + targetArea.getCenter());
 
         while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
-            Coordinate target = attempts < 3 ? targetArea.getRandomCoordinate() : destination;
+            Coordinate target = getSafeCoordinateInside(targetArea);
 
-            Pathfinder.PathBuilder builder = pathfinder.pathBuilder()
+            Path path = pathfinder.pathBuilder()
                     .destination(target)
                     .enableHomeTeleport(false)
                     .enableTeleports(false)
                     .avoidWilderness(true)
-                    .preferAccuracy();
-
-            Path path = builder.findPath();
+                    .preferAccuracy()
+                    .findPath();
 
             if (path != null && path.isValid()) {
-                System.out.println("✅ Found valid path. Walking to: " + target);
-                while (!targetArea.contains(Players.getLocal()) && path.step()) {
-                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    maybePerformAntiBan();
-                    Execution.delay(800, 1500);
-                }
+                System.out.println("✅ Valid path to inside area: " + target);
+                path.step();
+                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+                Execution.delay(500, 1000);
 
                 if (targetArea.contains(Players.getLocal())) {
                     reached = true;
                     break;
                 }
             } else {
-                System.out.println("⚠️ Attempt " + (attempts + 1) + ": No valid path to " + target);
+                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
             }
 
-            Execution.delay(500, 1000);
             attempts++;
+            Execution.delay(500, 1000);
         }
 
-        if (reached) {
-            System.out.println("✅ Arrived at destination: " + destination);
-        } else {
-            System.out.println("❌ Failed to reach destination after " + MAX_ATTEMPTS + " attempts. Using fallback.");
+        if (!reached) {
+            System.out.println("❌ Failed to enter area after " + MAX_ATTEMPTS + " attempts. Falling back.");
             fallBack(targetArea);
         }
-    }
-
-    private Coordinate getRandomNearbyCoordinate(Coordinate center, int radius) {
-        int xOffset = Random.nextInt(-radius, radius + 1);
-        int yOffset = Random.nextInt(-radius, radius + 1);
-        return new Coordinate(center.getX() + xOffset, center.getY() + yOffset, center.getPlane());
     }
 
     private void scheduleNextBreak() {

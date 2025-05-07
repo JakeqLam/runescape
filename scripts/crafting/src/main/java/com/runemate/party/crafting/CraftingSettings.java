@@ -8,9 +8,10 @@ import com.runemate.ui.setting.open.Settings;
 @SettingsGroup(group = "GenericCrafter")
 public interface CraftingSettings extends Settings {
 
-    @Setting(key = "hideType", title = "Hide Type", order = 1)
+    // Existing tanning settings
+    @Setting(key = "hideType", title = "Hide Type for tanning", order = 1)
     default HideType getHideType() {
-        return HideType.COWHIDE;
+        return HideType.SOFT_LEATHER;
     }
 
     @Setting(key = "location", title = "Tanning Location", order = 2)
@@ -50,6 +51,18 @@ public interface CraftingSettings extends Settings {
     @Setting(key = "requiredGoldAmount", title = "Required Gold Amount for tanning", order = 8)
     @Range(min = 1, max = 10000)
     default int getRequiredGoldAmount() {
-        return 20; // Default value
+        return 20;
+    }
+
+    // NEW: Leather crafting options
+
+    @Setting(key = "enableCrafting", title = "Enable Crafting (Needle/Thread) / Disable for tanning", order = 9)
+    default boolean isCraftingEnabled() {
+        return false;
+    }
+
+    @Setting(key = "leatherProduct", title = "Leather Product to Craft", order = 10)
+    default LeatherProduct getLeatherProduct() {
+        return LeatherProduct.CHAPS;
     }
 }
