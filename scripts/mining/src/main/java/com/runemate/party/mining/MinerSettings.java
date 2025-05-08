@@ -8,6 +8,12 @@ import com.runemate.ui.setting.open.*;
 
 @SettingsGroup(group = "SimpleMiner")
 public interface MinerSettings extends Settings {
+
+    @Setting(key = "preferredBank", title = "Select a specific bank location or leave blank for nearest.", order = 0)
+    default BankLocation getPreferredBank() {
+        return BankLocation.NEAREST;
+    }
+
     @Setting(key = "oreType", title = "Ore type", order = 1)
     default OreType getOreType() {
         return OreType.TIN;

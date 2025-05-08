@@ -26,76 +26,12 @@ import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class SimpleMiner extends LoopingBot implements SettingsListener {
 
-    public static final Area VARROCK_WEST_BANK = new Area.Rectangular(
-            new Coordinate(3181, 3436, 0), new Coordinate(3186, 3444, 0));
-
-    public static final Area VARROCK_EAST_BANK = new Area.Rectangular(
-            new Coordinate(3251, 3420, 0), new Coordinate(3257, 3426, 0));
-
-    public static final Area GRAND_EXCHANGE_BANK = new Area.Rectangular(
-            new Coordinate(3161, 3476, 0), new Coordinate(3169, 3486, 0));
-
-    public static final Area EDGEVILLE_BANK = new Area.Rectangular(
-            new Coordinate(3092, 3489, 0), new Coordinate(3099, 3499, 0));
-
-    public static final Area FALADOR_EAST_BANK = new Area.Rectangular(
-            new Coordinate(3010, 3352, 0), new Coordinate(3016, 3359, 0));
-
-    public static final Area FALADOR_WEST_BANK = new Area.Rectangular(
-            new Coordinate(2942, 3367, 0), new Coordinate(2946, 3375, 0));
-
-    public static final Area DRAYNOR_BANK = new Area.Rectangular(
-            new Coordinate(3092, 3240, 0), new Coordinate(3099, 3245, 0));
-
-    public static final Area AL_KHARID_BANK = new Area.Rectangular(
-            new Coordinate(3268, 3161, 0), new Coordinate(3273, 3170, 0));
-
-    public static final Area CAMELOT_BANK = new Area.Rectangular(
-            new Coordinate(2721, 3491, 0), new Coordinate(2726, 3494, 0));
-
-    public static final Area SEERS_VILLAGE_BANK = new Area.Rectangular(
-            new Coordinate(2723, 3492, 0), new Coordinate(2730, 3499, 0));
-
-    public static final Area ARDOUGNE_NORTH_BANK = new Area.Rectangular(
-            new Coordinate(2611, 3330, 0), new Coordinate(2617, 3337, 0));
-
-    public static final Area ARDOUGNE_SOUTH_BANK = new Area.Rectangular(
-            new Coordinate(2652, 3283, 0), new Coordinate(2658, 3289, 0));
-
-    public static final Area CATHERBY_BANK = new Area.Rectangular(
-            new Coordinate(2805, 3439, 0), new Coordinate(2810, 3444, 0));
-
-    public static final Area YANILLE_BANK = new Area.Rectangular(
-            new Coordinate(2610, 3090, 0), new Coordinate(2615, 3095, 0));
-
-    public static final Area ZEAH_BANK = new Area.Rectangular(
-            new Coordinate(1634, 3762, 0), new Coordinate(1640, 3767, 0));
-
-    private static final List<Area> BANK_LOCATIONS = Arrays.asList(
-            VARROCK_WEST_BANK,
-            VARROCK_EAST_BANK,
-            GRAND_EXCHANGE_BANK,
-            EDGEVILLE_BANK,
-            FALADOR_EAST_BANK,
-            FALADOR_WEST_BANK,
-            DRAYNOR_BANK,
-            AL_KHARID_BANK,
-            CAMELOT_BANK,
-            SEERS_VILLAGE_BANK,
-            ARDOUGNE_NORTH_BANK,
-            ARDOUGNE_SOUTH_BANK,
-            CATHERBY_BANK,
-            YANILLE_BANK,
-            ZEAH_BANK
-    );
-
     private static final Logger logger = LogManager.getLogger(SimpleMiner.class);
+    private static final List<BankLocation> BANK_LOCATIONS = Arrays.asList(BankLocation.values());
 
     @SettingsProvider(updatable = true)
     private MinerSettings settings;
@@ -116,6 +52,9 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
     private long lastAntiBanTime = 0;
     private long nextAntiBanCooldown = getRandomCooldown();
+
+    private final Set<Coordinate> contestedRocks = new HashSet<>();
+    private long contestedClearTime = System.currentTimeMillis();
 
     private long getRandomCooldown() {
         return Random.nextInt(10_000, 100_000); // Between 10s and 100s
@@ -283,9 +222,18 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
     public void walkToAndOpenBank() {
         movingToBank = true;
 
-        Area closestBank = BANK_LOCATIONS.stream()
-                .min(Comparator.comparingInt(b -> (int) b.getCenter().distanceTo(Players.getLocal().getPosition())))
-                .orElse(VARROCK_WEST_BANK);
+        BankLocation preferredBank = settings.getPreferredBank();
+        Area closestBank;
+
+        if (preferredBank.isNearest()) {
+            closestBank = Arrays.stream(BankLocation.values())
+                    .filter(b -> b != BankLocation.NEAREST)
+                    .map(BankLocation::getArea)
+                    .min(Comparator.comparingInt(a -> (int) a.getCenter().distanceTo(Players.getLocal().getPosition())))
+                    .orElse(null);
+        } else {
+            closestBank = preferredBank.getArea();
+        }
 
 
         if (Players.getLocal() == null) {
@@ -408,11 +356,30 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
 
         // 5) Mining
+        maybeClearContestedRocks();
+
         String oreName = settings.getOreType().toString();
         GameObject rock = GameObjects.newQuery()
                 .names(oreName)
+                .filter(r -> !contestedRocks.contains(r.getPosition()))
                 .results()
                 .nearest();
+
+        if (rock != null) {
+            boolean someoneElseIsMining = Players.newQuery()
+                    .filter(p -> !p.equals(Players.getLocal()))
+                    .filter(p -> p.getTarget() != null && p.getTarget().equals(rock))
+                    .results()
+                    .size() > 0;
+
+            if (someoneElseIsMining) {
+                System.out.println("⛏️ Rock is being mined by another player, skipping...");
+                contestedRocks.add(rock.getPosition());
+                Execution.delay(500, 1000);
+                return;
+            }
+        }
+
 
         if (!movingToBank && rock == null)
             walkToMiningLocation();
@@ -475,6 +442,24 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
             lastActionTime = System.currentTimeMillis();
 
+        }
+    }
+
+    private boolean isRockContested(GameObject rock) {
+        if (rock == null) return true;
+
+        // Consider it contested if another player is within 1 tile and not you
+        return Players.newQuery()
+                .filter(p -> !p.equals(Players.getLocal()))
+                .filter(p -> Distance.between(p, rock) <= 4)
+                .results()
+                .size() > 0;
+    }
+
+    private void maybeClearContestedRocks() {
+        if (System.currentTimeMillis() - contestedClearTime > 250_000) { // 2.5 minutes
+            contestedRocks.clear();
+            contestedClearTime = System.currentTimeMillis();
         }
     }
 

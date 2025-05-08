@@ -324,11 +324,9 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                     Execution.delayUntil(Bank::isOpen, 2000, 5000);
                 } else {
                     System.out.println("⚠️ Failed to interact with bank object.");
-                    return;
                 }
             } else {
                 System.out.println("❌ No bank object found nearby.");
-                return;
             }
         }
 

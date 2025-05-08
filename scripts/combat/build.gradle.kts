@@ -7,6 +7,7 @@ dependencies {
 runemate {
     //This is useful when you are working on a bot that you are not ready to publish yet
     excludeFromSubmission = false
+    autoLogin = false
     /*
      * The submission token is used by Gradle to authenticate with RuneMate servers when publishing bots to the store.
      * You can get a token from the RuneMate developer panel, and store it in your root 'gradle.properties' file.

@@ -221,6 +221,11 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                 .results()
                 .nearest();
 
+        if (Inventory.isFull()) {
+            walkToBankAndWithdrawFood();
+            return;
+        }
+
         if (loot != null) {
             if (Inventory.isFull()) {
                 if (eatToMakeSpaceIfLootNearby(combatArea)) {
@@ -278,36 +283,107 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         }
     }
 
-    private void walkToArea(Area area) {
-        if (area.contains(Players.getLocal())) return;
-        Coordinate destination = area.getRandomCoordinate();
-        Path path = pathfinder.pathBuilder()
-                .destination(destination)
-                .enableHomeTeleport(false)
-                .enableTeleports(false)
-                .preferAccuracy()
-                .findPath();
-        if (path != null && path.step()) {
-            Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1500);
-        } else {
-            BresenhamPath fb = BresenhamPath.buildTo(destination);
-            if (fb != null && fb.step()) {
-                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1500);
-            } else {
-                System.out.println("[SimpleFighter] Pathfinding failed, clicking nearby random tile.");
+    private Coordinate getSafeCoordinateInside(Area area) {
 
-                Coordinate playerPos = Players.getLocal().getPosition();
-                for (int i = 0; i < 10; i++) {
-                    int dx = Random.nextInt(1, 3);
-                    int dy = Random.nextInt(1, 3);
-                    Coordinate randomTile = playerPos.randomize(dx, dy);
+        if (pathfinder == null) {
+            return area.getCenter();
+        }
 
-                    if (randomTile.isReachable()) {
-                        randomTile.interact("Walk here");
-                        Execution.delayUntil(() -> Players.getLocal().isMoving(), 300, 1500);
-                        break;
-                    }
+        for (int i = 0; i < 10; i++) {
+            Coordinate candidate = area.getRandomCoordinate();
+            if (candidate != null) {
+                Path path = pathfinder.pathBuilder()
+                        .destination(candidate)
+                        .preferAccuracy()
+                        .findPath();
+
+                if (path != null && path.isValid()) {
+                    return candidate;
                 }
+            }
+        }
+
+        // Fallback to center if no valid coordinate was found
+        return area.getCenter();
+    }
+
+    private void walkToArea(Area targetArea) {
+        final int MAX_ATTEMPTS = 5;
+        int attempts = 0;
+        boolean reached = false;
+
+        System.out.println("📍 [GenericCrafter] Attempting to walk inside area: " + targetArea.getCenter());
+
+        while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
+            Coordinate target = getSafeCoordinateInside(targetArea);
+
+            Path path = pathfinder.pathBuilder()
+                    .destination(target)
+                    .enableHomeTeleport(false)
+                    .enableTeleports(false)
+                    .avoidWilderness(true)
+                    .preferAccuracy()
+                    .findPath();
+
+            if (path != null && path.isValid()) {
+                System.out.println("✅ Valid path to inside area: " + target);
+                path.step();
+                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
+                Execution.delay(500, 1000);
+
+                if (targetArea.contains(Players.getLocal())) {
+                    reached = true;
+                    break;
+                }
+            } else {
+                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
+            }
+
+            attempts++;
+            Execution.delay(500, 1000);
+        }
+
+        if (!reached) {
+            System.out.println("❌ Failed to enter area after " + MAX_ATTEMPTS + " attempts. Falling back.");
+            fallBack(targetArea);
+        }
+    }
+
+    public void fallBack(Area target) {
+        // Fallback: Click a nearby walkable tile using Interactable
+        Path path = BresenhamPath.buildTo(target.getCenter().randomize(10,10));
+        if (path != null && !target.contains(Players.getLocal())) {
+            path.step();
+            Execution.delay(800, 1500);
+        } else {
+            Coordinate start = Players.getLocal().getPosition();
+
+            if (start == null) {
+                System.out.println("❌ Invalid start or target coordinate.");
+                return;
+            }
+
+            // Calculate 1/3rd point between start and target
+            int newX = start.getX() + (target.getCenter().getX() - start.getX()) / 3;
+            int newY = start.getY() + (target.getCenter().getY() - start.getY()) / 3;
+            Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
+
+            // Randomize slightly to avoid exact clicks
+            Coordinate destination = oneThird.randomize(1, 1);
+
+            path = pathfinder.pathBuilder().destination(destination)
+                    .enableHomeTeleport(false)
+                    .avoidWilderness(true)
+                    .preferAccuracy().findPath();
+            if (path != null && path.isValid() && !target.contains(Players.getLocal())) {
+                if (path.step()) {
+                    System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
+                    Execution.delay(800, 1500);
+                } else {
+                    System.out.println("⚠️ Failed to step to fallback destination.");
+                }
+            } else {
+                System.out.println("❌ Fallback path is invalid.");
             }
         }
     }

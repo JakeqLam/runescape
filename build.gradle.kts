@@ -22,7 +22,7 @@ version = "1.0.0"
 
 runemate {
     devMode = true
-    autoLogin = true
+    autoLogin = false
 
     submissionToken = "rmp_Iglrs8b2uu1qLwk6OJKZCdMIQBZ0YH3j52Mr"
 
