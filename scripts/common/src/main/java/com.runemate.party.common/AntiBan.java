@@ -1,5 +1,6 @@
 package com.runemate.party.common;
 
+import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Item;
 import com.runemate.game.api.hybrid.entities.Npc;
@@ -22,6 +23,7 @@ import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.StopWatch;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
+import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import javafx.scene.input.MouseButton;
 
 
@@ -37,11 +39,26 @@ import java.util.stream.Collectors;
 
 public class AntiBan {
 
-    private static final int STATS_GROUP_ID = 320;  // Skills tab group
-    private static final int TABS_GROUP_ID = 164;   // Bottom tab group
+    private long lastAntiBanTime = 0;
+    private long nextAntiBanCooldown = getRandomCooldown();
 
     private long lastZoomTime = 0;
     private long lastCameraMoveTime = 0;
+    private long nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
+
+    private long getRandomCooldown() {
+        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
+    }
+
+    public void maybePerformAntiBan() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
+            System.out.println("[SimpleFisher] Performing anti-ban");
+            performAntiBan();
+            lastAntiBanTime = currentTime;
+            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
+        }
+    }
 
     public void rotateCamera() {
         System.out.println("🛡️ Performing anti-ban action...");
@@ -265,10 +282,22 @@ public class AntiBan {
         Execution.delay(Random.nextInt(200, 1500));
     }
 
-    private static Point getClickablePoint(Rectangle bounds) {
-        if (bounds == null) return null;
-        int x = Random.nextInt(bounds.x + 2, bounds.x + bounds.width - 2);
-        int y = Random.nextInt(bounds.y + 2, bounds.y + bounds.height - 2);
-        return new Point(x, y);
+    public void performBreakLogic(int breakmin, int breakmax) {
+        // Break logic
+        if (System.currentTimeMillis() >= nextBreakTime) {
+            int length = Random.nextInt(breakmin, breakmax + 1);
+            System.out.println("[SimpleFisher] Taking break for " + length + "s");
+            if (RuneScape.isLoggedIn()) { RuneScape.logout(true); }
+            Execution.delay(length * 1000);
+            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
+            scheduleNextBreak(breakmin,breakmax);
+        }
     }
+
+    private void scheduleNextBreak(int breakmin, int breakmax) {
+        int interval = Random.nextInt(breakmin, breakmax + 1);
+        nextBreakTime = System.currentTimeMillis() + interval * 1000L;
+        System.out.println("[SimpleFisher] Next break in " + interval + "s");
+    }
+
 }

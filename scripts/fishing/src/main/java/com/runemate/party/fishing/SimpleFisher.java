@@ -22,6 +22,7 @@ import com.runemate.game.api.script.framework.LoopingBot;
 import com.runemate.game.api.script.framework.listeners.SettingsListener;
 import com.runemate.game.api.script.framework.listeners.events.SettingChangedEvent;
 import com.runemate.party.common.AntiBan;
+import com.runemate.party.common.GPTNavigation;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import org.apache.logging.log4j.LogManager;
@@ -57,32 +58,21 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
 
     private Pathfinder pathfinder;
     private AntiBan antiBan;
+    private GPTNavigation navigation;
     private boolean settingsConfirmed;
-    private long nextBreakTime;
+
     boolean isFishingInLumbridge;
-    private long lastAntiBanTime = 0;
-    private long nextAntiBanCooldown = getRandomCooldown();
 
-    private long getRandomCooldown() {
-        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
-    }
-
-    private void maybePerformAntiBan() {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
-            System.out.println("[SimpleFisher] Performing anti-ban");
-            antiBan.performAntiBan();
-            lastAntiBanTime = currentTime;
-            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
-        }
-    }
+    private long lastEarlyBankCheck = 0;
+    private long earlyBankCooldown = Random.nextInt(1, 3) * 60 * 1000; // 3–6 minutes
 
     @Override
     public void onStart(String... args) {
         antiBan = new AntiBan();
+        navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
         pathfinder = Pathfinder.create(this);
-        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
+
         // Check if Lumbridge is the fishing spot
         isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
         System.out.println("[SimpleFisher] Started");
@@ -95,25 +85,31 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         if (player == null) return;
         
         // Break logic
-        if (System.currentTimeMillis() >= nextBreakTime) {
-            int length = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
-            System.out.println("[SimpleFisher] Taking break for " + length + "s");
-            if (RuneScape.isLoggedIn()) { RuneScape.logout(true); }
-            Execution.delay(length * 1000);
-            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
-            scheduleNextBreak();
-            return;
-        }
+        antiBan.performBreakLogic(settings.getBreakMin(), settings.getBreakMax());
 
         // Bank if inventory full
-        if (Inventory.isFull()) {
-            System.out.println("[SimpleFisher] Inventory full, banking");
+        int inventoryCount = Inventory.getItems().size();
+        long currentTime = System.currentTimeMillis();
+
+        // Check if it's time to consider early banking again
+        boolean shouldCheckEarlyBank = (currentTime - lastEarlyBankCheck) > earlyBankCooldown;
+        boolean earlyBankChance = shouldCheckEarlyBank && inventoryCount >= 24 && Random.nextInt(0, 100) < 10;
+
+        if (Inventory.isFull() || earlyBankChance) {
+            System.out.println("[SimpleFisher] Banking (reason: " +
+                    (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
+
+            if (earlyBankChance) {
+                earlyBankCooldown = (long) Random.nextInt(1, 3) * 60 * 1000;
+                lastEarlyBankCheck = currentTime; // Reset cooldown
+            }
+
             walkToAndDeposit();
             return;
         }
 
         // Anti-ban randomly
-        maybePerformAntiBan();
+        antiBan.maybePerformAntiBan();
 
         // Fishing
         FishingMethod method = settings.getMethod();
@@ -150,62 +146,11 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 Camera.turnTo(spot);
                 Execution.delay(200,400);
             } else {
-                walkToArea(spotArea);
+                navigation.walkToArea(spotArea, pathfinder);
             }
         }
     }
 
-    private void walkToArea(Area area) {
-        if (area.contains(Players.getLocal())) return;
-        System.out.println("[SimpleFisher] Walking to area: " + area);
-        int attempts = 0;
-        boolean reached = false;
-        while (attempts < 5 && !area.contains(Players.getLocal())) {
-            Coordinate dest = attempts < 3 ? area.getRandomCoordinate() : area.getCenter();
-            Path path = pathfinder.pathBuilder()
-                    .destination(dest)
-                    .preferAccuracy()
-                    .enableHomeTeleport(false)
-                    .findPath();
-            if (path != null && path.isValid()) {
-                int fails = 0;
-                while (!area.contains(Players.getLocal()) && path.step()) {
-                    maybePerformAntiBan();
-                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                    Execution.delay(800,1500);
-                }
-                if (area.contains(Players.getLocal())) { reached = true; break; }
-            }
-            attempts++;
-            Execution.delay(500,1000);
-        }
-        if (!reached) {
-            System.out.println("[SimpleFisher] Fallback navigation");
-            Path fb = BresenhamPath.buildTo(area.getCenter().randomize(10,10));
-            if (fb != null && fb.step()) {
-                Execution.delay(800,1500);
-            } else {
-                Coordinate start = Players.getLocal().getPosition();
-                Coordinate center = area.getCenter();
-                Coordinate oneThird = new Coordinate(
-                        start.getX() + (center.getX()-start.getX())/3,
-                        start.getY() + (center.getY()-start.getY())/3,
-                        start.getPlane()
-                ).randomize(1,1);
-                Path fn = pathfinder.pathBuilder().destination(oneThird)
-                        .avoidWilderness(true).preferAccuracy().findPath();
-                if (fn != null && fn.isValid())
-                    fn.step();
-                else {
-                    System.out.println("[SimpleFisher] zooming out");
-                    antiBan.rotateCamera();
-                    Execution.delay(Random.nextInt(100, 300));
-                }
-                Execution.delay(800,1500);
-
-            }
-        }
-    }
 
     private void walkToAndDeposit() {
         Area closestBank;
@@ -222,7 +167,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         }
 
         // Walk to bank area with fallback
-        walkToArea(closestBank);
+        navigation.walkToArea(closestBank, pathfinder);
 
         // Interact with bank booth/chest
         GameObject bank = GameObjects.newQuery()
@@ -265,11 +210,6 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         }
     }
 
-    private void scheduleNextBreak() {
-        int interval = Random.nextInt(settings.getBreakMin(), settings.getBreakMax() + 1);
-        nextBreakTime = System.currentTimeMillis() + interval * 1000L;
-        System.out.println("[SimpleFisher] Next break in " + interval + "s");
-    }
 
     @Override public void onStop() { System.out.println("[SimpleFisher] Stopped."); }
     @Override public void onSettingChanged(SettingChangedEvent e) {        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP); }

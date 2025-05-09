@@ -24,6 +24,8 @@ import com.runemate.game.api.script.framework.LoopingBot;
 import com.runemate.game.api.script.framework.listeners.SettingsListener;
 import com.runemate.game.api.script.framework.listeners.events.SettingChangedEvent;
 import com.runemate.party.common.AntiBan;
+
+import com.runemate.party.common.GPTNavigation;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 
@@ -37,9 +39,8 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
 
     private Pathfinder pathfinder;
     private AntiBan antiBan;
+    private GPTNavigation navigation;
     private boolean settingsConfirmed;
-    private long nextBreakTime;
-    private Coordinate customStartLocation;
 
     private static final Coordinate[] BANK_LOCATIONS = new Coordinate[] {
             new Coordinate(3182, 3436, 0),   // Varrock West
@@ -52,23 +53,6 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
             new Coordinate(3093, 3243, 0),   // Draynor
             new Coordinate(2615, 3332, 0)    // Ardougne West
     };
-
-    private long lastAntiBanTime = 0;
-    private long nextAntiBanCooldown = getRandomCooldown();
-
-    private long getRandomCooldown() {
-        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
-    }
-
-    private void maybePerformAntiBan() {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
-            System.out.println("[SimpleFisher] Performing anti-ban");
-            antiBan.performAntiBan();
-            lastAntiBanTime = currentTime;
-            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
-        }
-    }
 
     private boolean shouldMisclick() {
         return Random.nextInt(100) < 5; // 5% chance to misclick
@@ -155,8 +139,9 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
     public void onStart(String... args) {
         pathfinder = Pathfinder.create(this);
         antiBan = new AntiBan();
+        navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
-        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(10000,11000) * 1000L);
+
         System.out.println("[SimpleFighter] Started.");
     }
 
@@ -168,15 +153,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         if (player == null) return;
 
         // Break logic
-        if (System.currentTimeMillis() >= nextBreakTime) {
-            int duration = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
-            System.out.println("[SimpleFighter] Taking break for " + duration + "s");
-            if (RuneScape.isLoggedIn()) RuneScape.logout(true);
-            Execution.delay(duration * 1000);
-            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
-            scheduleNextBreak();
-            return;
-        }
+        antiBan.performBreakLogic(settings.getBreakMin(),settings.getBreakMax());
 
         // Eat food if low HP
         int hpPercent = (int) (Health.getCurrentPercent());
@@ -194,7 +171,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         }
 
         // Anti-ban randomly
-        maybePerformAntiBan();
+        antiBan.maybePerformAntiBan();
 
         if (settings.shouldUpdateLocation()) {
             Coordinate current = Players.getLocal().getPosition();
@@ -211,7 +188,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
 
         // Combat
         if (!combatArea.contains(player)) {
-            walkToArea(combatArea);
+            navigation.walkToArea(combatArea, pathfinder);
             return;
         }
 
@@ -307,87 +284,6 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         return area.getCenter();
     }
 
-    private void walkToArea(Area targetArea) {
-        final int MAX_ATTEMPTS = 5;
-        int attempts = 0;
-        boolean reached = false;
-
-        System.out.println("📍 [GenericCrafter] Attempting to walk inside area: " + targetArea.getCenter());
-
-        while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
-            Coordinate target = getSafeCoordinateInside(targetArea);
-
-            Path path = pathfinder.pathBuilder()
-                    .destination(target)
-                    .enableHomeTeleport(false)
-                    .enableTeleports(false)
-                    .avoidWilderness(true)
-                    .preferAccuracy()
-                    .findPath();
-
-            if (path != null && path.isValid()) {
-                System.out.println("✅ Valid path to inside area: " + target);
-                path.step();
-                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                Execution.delay(500, 1000);
-
-                if (targetArea.contains(Players.getLocal())) {
-                    reached = true;
-                    break;
-                }
-            } else {
-                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
-            }
-
-            attempts++;
-            Execution.delay(500, 1000);
-        }
-
-        if (!reached) {
-            System.out.println("❌ Failed to enter area after " + MAX_ATTEMPTS + " attempts. Falling back.");
-            fallBack(targetArea);
-        }
-    }
-
-    public void fallBack(Area target) {
-        // Fallback: Click a nearby walkable tile using Interactable
-        Path path = BresenhamPath.buildTo(target.getCenter().randomize(10,10));
-        if (path != null && !target.contains(Players.getLocal())) {
-            path.step();
-            Execution.delay(800, 1500);
-        } else {
-            Coordinate start = Players.getLocal().getPosition();
-
-            if (start == null) {
-                System.out.println("❌ Invalid start or target coordinate.");
-                return;
-            }
-
-            // Calculate 1/3rd point between start and target
-            int newX = start.getX() + (target.getCenter().getX() - start.getX()) / 3;
-            int newY = start.getY() + (target.getCenter().getY() - start.getY()) / 3;
-            Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
-
-            // Randomize slightly to avoid exact clicks
-            Coordinate destination = oneThird.randomize(1, 1);
-
-            path = pathfinder.pathBuilder().destination(destination)
-                    .enableHomeTeleport(false)
-                    .avoidWilderness(true)
-                    .preferAccuracy().findPath();
-            if (path != null && path.isValid() && !target.contains(Players.getLocal())) {
-                if (path.step()) {
-                    System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
-                    Execution.delay(800, 1500);
-                } else {
-                    System.out.println("⚠️ Failed to step to fallback destination.");
-                }
-            } else {
-                System.out.println("❌ Fallback path is invalid.");
-            }
-        }
-    }
-
     private Coordinate getNearestBank() {
         Coordinate playerPos = Players.getLocal().getPosition();
         return Arrays.stream(BANK_LOCATIONS)
@@ -399,7 +295,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         Area bankArea = getNearestBank().getArea();
 
         while (!bankArea.contains(Players.getLocal())) {
-            walkToArea(bankArea);
+            navigation.walkToArea(bankArea, pathfinder);
         }
 
         Execution.delay( 2000, 3500);
@@ -421,12 +317,6 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
             Bank.close();
             Execution.delay(300, 800);
         }
-    }
-
-    private void scheduleNextBreak() {
-        int interval = Random.nextInt(settings.getBreakMin(), settings.getBreakMax() + 1);
-        nextBreakTime = System.currentTimeMillis() + interval * 1000L;
-        System.out.println("[SimpleFighter] Next break in " + interval + "s");
     }
 
     @Override

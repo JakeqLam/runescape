@@ -18,6 +18,7 @@ import com.runemate.game.api.script.framework.LoopingBot;
 import com.runemate.game.api.script.framework.listeners.SettingsListener;
 import com.runemate.game.api.script.framework.listeners.events.SettingChangedEvent;
 import com.runemate.party.common.AntiBan;
+import com.runemate.party.common.GPTNavigation;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import com.runemate.game.api.hybrid.input.Mouse;
@@ -31,18 +32,11 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
     private Pathfinder pathfinder;
     private AntiBan antiBan;
-    private long nextBreakTime;
     private boolean settingsConfirmed;
 
     private static final String REQUIRED_GOLD_NAME = "Coins";
     private static final int REQUIRED_GOLD_AMOUNT = 20;
-
-    private long lastAntiBanTime = 0;
-    private long nextAntiBanCooldown = getRandomCooldown();
-
-    private long getRandomCooldown() {
-        return Random.nextInt(10_000, 80_000); // Between 10s and 100s
-    }
+    private GPTNavigation navigation;
 
     private boolean hasMaterialsForCrafting() {
         return Inventory.contains("Needle") &&
@@ -55,15 +49,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
                 Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT;
     }
 
-    private void maybePerformAntiBan() {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
-            System.out.println("[SimpleFisher] Performing anti-ban");
-            antiBan.performAntiBan();
-            lastAntiBanTime = currentTime;
-            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
-        }
-    }
+
     // Get tanning area using the TanningLocation enum
     private Area getTanningArea() {
         return settings.getLocation().getArea();
@@ -75,8 +61,8 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     public void onStart(String... args) {
         pathfinder = Pathfinder.create(this);
         antiBan = new AntiBan();
+        navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
-        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(10000, 11000) * 1000L);
         System.out.println("GenericCrafter has started.");
     }
 
@@ -101,18 +87,10 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         }
 
         // Anti-ban randomly
-        maybePerformAntiBan();
+        antiBan.maybePerformAntiBan();
 
         // Break logic
-        if (System.currentTimeMillis() >= nextBreakTime) {
-            int duration = Random.nextInt(settings.getBreakMinLength(), settings.getBreakMaxLength() + 1);
-            System.out.println("[GenericCrafter] Taking break for " + duration + "s");
-            if (RuneScape.isLoggedIn()) RuneScape.logout(true);
-            Execution.delay(duration * 1000);
-            Execution.delayUntil(RuneScape::isLoggedIn, 5000, 30000);
-            scheduleNextBreak();
-            return;
-        }
+        antiBan.performBreakLogic(settings.getBreakMin(),settings.getBreakMax());
 
         System.out.println("Loop end.");
     }
@@ -186,7 +164,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         // Walk to tanner
         Area tanningArea = getTanningArea();
         if (!tanningArea.contains(Players.getLocal())) {
-            walkToArea(tanningArea);
+            navigation.walkToArea(tanningArea, pathfinder);
             return;
         }
 
@@ -269,7 +247,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         // After tanning, navigate back to the bank
         System.out.println("Tanning complete, walking back to the bank...");
         while (!BANK_AREA.contains(Players.getLocal()))
-            walkToArea(BANK_AREA);
+            navigation.walkToArea(BANK_AREA, pathfinder);
     }
 
     private void handleLeatherCrafting() {
@@ -333,7 +311,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
                     long duration = Random.nextInt(15000, 18000);
                     while (System.currentTimeMillis() - startTime < duration) {
                         Execution.delay(600, 1200);
-                        maybePerformAntiBan();
+                        antiBan.maybePerformAntiBan();
                     }
 
                 }
@@ -370,117 +348,6 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
         Bank.close();
         Execution.delayUntil(() -> !Bank.isOpen(), 2000);
-    }
-
-    private void scheduleNextBreak() {
-        int interval = Random.nextInt(settings.getBreakMin(), settings.getBreakMax() + 1);
-        nextBreakTime = System.currentTimeMillis() + interval * 1000L;
-        System.out.println("[GenericCrafter] Next break in " + interval + "s");
-    }
-
-    private Coordinate getSafeCoordinateInside(Area area) {
-
-        if (pathfinder == null) {
-            return area.getCenter();
-        }
-
-        for (int i = 0; i < 10; i++) {
-            Coordinate candidate = area.getRandomCoordinate();
-            if (candidate != null) {
-                Path path = pathfinder.pathBuilder()
-                        .destination(candidate)
-                        .preferAccuracy()
-                        .findPath();
-
-                if (path != null && path.isValid()) {
-                    return candidate;
-                }
-            }
-        }
-
-        // Fallback to center if no valid coordinate was found
-        return area.getCenter();
-    }
-
-    private void walkToArea(Area targetArea) {
-        final int MAX_ATTEMPTS = 5;
-        int attempts = 0;
-        boolean reached = false;
-
-        System.out.println("📍 [GenericCrafter] Attempting to walk inside area: " + targetArea.getCenter());
-
-        while (attempts < MAX_ATTEMPTS && !targetArea.contains(Players.getLocal())) {
-            Coordinate target = getSafeCoordinateInside(targetArea);
-
-            Path path = pathfinder.pathBuilder()
-                    .destination(target)
-                    .enableHomeTeleport(false)
-                    .enableTeleports(false)
-                    .avoidWilderness(true)
-                    .preferAccuracy()
-                    .findPath();
-
-            if (path != null && path.isValid()) {
-                System.out.println("✅ Valid path to inside area: " + target);
-                path.step();
-                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 300, 1200);
-                Execution.delay(500, 1000);
-
-                if (targetArea.contains(Players.getLocal())) {
-                    reached = true;
-                    break;
-                }
-            } else {
-                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
-            }
-
-            attempts++;
-            Execution.delay(500, 1000);
-        }
-
-        if (!reached) {
-            System.out.println("❌ Failed to enter area after " + MAX_ATTEMPTS + " attempts. Falling back.");
-            fallBack(targetArea);
-        }
-    }
-
-    public void fallBack(Area target) {
-        // Fallback: Click a nearby walkable tile using Interactable
-        Path path = BresenhamPath.buildTo(target.getCenter().randomize(10,10));
-        if (path != null && !target.contains(Players.getLocal())) {
-            path.step();
-            Execution.delay(800, 1500);
-        } else {
-            Coordinate start = Players.getLocal().getPosition();
-
-            if (start == null) {
-                System.out.println("❌ Invalid start or target coordinate.");
-                return;
-            }
-
-            // Calculate 1/3rd point between start and target
-            int newX = start.getX() + (target.getCenter().getX() - start.getX()) / 3;
-            int newY = start.getY() + (target.getCenter().getY() - start.getY()) / 3;
-            Coordinate oneThird = new Coordinate(newX, newY, start.getPlane());
-
-            // Randomize slightly to avoid exact clicks
-            Coordinate destination = oneThird.randomize(1, 1);
-
-            path = pathfinder.pathBuilder().destination(destination)
-                    .enableHomeTeleport(false)
-                    .avoidWilderness(true)
-                    .preferAccuracy().findPath();
-            if (path != null && path.isValid() && !target.contains(Players.getLocal())) {
-                if (path.step()) {
-                    System.out.println("🚶 Stepping to fallback (1/3rd point): " + destination);
-                    Execution.delay(800, 1500);
-                } else {
-                    System.out.println("⚠️ Failed to step to fallback destination.");
-                }
-            } else {
-                System.out.println("❌ Fallback path is invalid.");
-            }
-        }
     }
 
     private boolean shouldMisclick() {
