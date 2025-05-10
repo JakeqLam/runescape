@@ -2,40 +2,20 @@ package com.runemate.party.common;
 
 import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
-import com.runemate.game.api.hybrid.entities.Item;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
-import com.runemate.game.api.hybrid.entities.details.Interactable;
 import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
-import com.runemate.game.api.hybrid.local.Screen;
-import com.runemate.game.api.hybrid.local.Skill;
-import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceComponent;
-import com.runemate.game.api.hybrid.local.hud.interfaces.Interfaces;
-import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
-import com.runemate.game.api.hybrid.location.Coordinate;
-import com.runemate.game.api.hybrid.queries.InterfaceComponentQueryBuilder;
-import com.runemate.game.api.hybrid.queries.results.SpriteItemQueryResults;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
-import com.runemate.game.api.hybrid.util.StopWatch;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
-import com.runemate.ui.setting.annotation.open.SettingsProvider;
-import javafx.scene.input.MouseButton;
 
-
-import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class AntiBan {
 
@@ -44,10 +24,19 @@ public class AntiBan {
 
     private long lastZoomTime = 0;
     private long lastCameraMoveTime = 0;
-    private long nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
+    private long nextBreakTime = System.currentTimeMillis() + (long)(getGaussian(9000, 11000, 10000, 800) * 1000L);
 
     private long getRandomCooldown() {
-        return Random.nextInt(10_000, 100_000); // Between 10s and 100s
+        return (long)getGaussian(10_000, 100_000, 55_000, 22_500); // Gaussian between 10s and 100s
+    }
+
+    // Gaussian random number within bounds (min, max) with mean and std deviation
+    private double getGaussian(double min, double max, double mean, double stdDev) {
+        double value;
+        do {
+            value = Random.nextGaussian(min, max, mean, stdDev);
+        } while (value < min || value > max);
+        return value;
     }
 
     public void maybePerformAntiBan() {
@@ -56,78 +45,64 @@ public class AntiBan {
             System.out.println("[SimpleFisher] Performing anti-ban");
             performAntiBan();
             lastAntiBanTime = currentTime;
-            nextAntiBanCooldown = getRandomCooldown(); // Set a new random delay
+            nextAntiBanCooldown = getRandomCooldown();
         }
     }
 
     public void rotateCamera() {
         System.out.println("🛡️ Performing anti-ban action...");
 
-                if (Random.nextInt(0,10) < 3) { // 30% chance for middle-mouse drag
-                    int curYaw   = Camera.getYaw();
-                    double curP  = Camera.getPitch();
-                    System.out.printf("[Cam] current yaw=%d, pitch=%.2f%n", curYaw, curP);
+        if (Random.nextInt(0,10) < 3) { // 30% chance for middle-mouse drag
+            int curYaw   = Camera.getYaw();
+            double curP  = Camera.getPitch();
+            System.out.printf("[Cam] current yaw=%d, pitch=%.2f%n", curYaw, curP);
 
-                    // 2) choose Δ but enforce |Δyaw| ≥ 30°, |Δpitch| ≥ 0.20
-                    int rawDy     = ThreadLocalRandom.current().nextInt(-45, 46);
-                    int dy        = (Math.abs(rawDy) < 30 ? (rawDy < 0 ? -30 : 30) : rawDy);
-                    double rawDp  = ThreadLocalRandom.current().nextDouble(-0.25, 0.26);
-                    double dp     = (Math.abs(rawDp) < 0.20 ? (rawDp < 0 ? -0.20 : 0.20) : rawDp);
+            int rawDy     = ThreadLocalRandom.current().nextInt(-45, 46);
+            int dy        = (Math.abs(rawDy) < 30 ? (rawDy < 0 ? -30 : 30) : rawDy);
+            double rawDp  = ThreadLocalRandom.current().nextDouble(-0.25, 0.26);
+            double dp     = (Math.abs(rawDp) < 0.20 ? (rawDp < 0 ? -0.20 : 0.20) : rawDp);
 
-                    int tgtYaw   = (curYaw + dy + 360) % 360;
-                    double tgtP  = Math.max(0, Math.min(1, curP + dp));
-                    System.out.printf("[Cam] target yaw=%d (Δ%+d), pitch=%.2f (Δ%+.2f)%n",
-                            tgtYaw, dy, tgtP, dp);
+            int tgtYaw   = (curYaw + dy + 360) % 360;
+            double tgtP  = Math.max(0, Math.min(1, curP + dp));
+            System.out.printf("[Cam] target yaw=%d (Δ%+d), pitch=%.2f (Δ%+.2f)%n",
+                    tgtYaw, dy, tgtP, dp);
 
-                    // 3) async turn (tolerance only affects “when to stop”)
-                    double tol = ThreadLocalRandom.current().nextDouble(0.05, 0.15);
-                    System.out.printf("[Cam] turning tol=%.2f%n", tol);
-                    Camera.concurrentlyTurnTo(tgtYaw, tgtP, tol);  // built-in micro-jitter :contentReference[oaicite:0]{index=0}
+            double tol = getGaussian(0.05, 0.15, 0.10, 0.03);
+            System.out.printf("[Cam] turning tol=%.2f%n", tol);
+            Camera.concurrentlyTurnTo(tgtYaw, tgtP, tol);
 
-                    // 4) wait 500–800ms or until done
-                    Execution.delayUntil(
-                            () -> !Camera.isTurning(),
-                            () -> false,
-                            500, 800
-                    );                                              // yields to RM loop :contentReference[oaicite:1]{index=1}
+            Execution.delayUntil(
+                    () -> !Camera.isTurning(),
+                    () -> false,
+                    (int)getGaussian(500, 800, 650, 100)
+            );
+        } else { // 70% chance for arrow keys
+            int[][] keyCombos = {
+                    {KeyEvent.VK_LEFT},
+                    {KeyEvent.VK_RIGHT},
+                    {KeyEvent.VK_UP},
+                    {KeyEvent.VK_DOWN},
+                    {KeyEvent.VK_LEFT, KeyEvent.VK_UP},
+                    {KeyEvent.VK_RIGHT, KeyEvent.VK_UP},
+                    {KeyEvent.VK_LEFT, KeyEvent.VK_DOWN},
+                    {KeyEvent.VK_RIGHT, KeyEvent.VK_DOWN}
+            };
 
-                    // 5) log result
-                    int finYaw   = Camera.getYaw();
-                    double finP  = Camera.getPitch();
-                    int diffYaw  = Math.min(Math.abs(finYaw - tgtYaw), 360 - Math.abs(finYaw - tgtYaw));
-                    double diffP = Math.abs(finP - tgtP);
-                    boolean ok   = diffYaw <= tol * 360 && diffP <= tol;
-                    System.out.printf("[Cam] final yaw=%d, pitch=%.2f → Δyaw=%d, Δpitch=%.2f → %s%n",
-                            finYaw, finP, diffYaw, diffP, ok ? "OK" : "MISS");
-                } else { // 70% chance for arrow keys
-                    int[][] keyCombos = {
-                            {KeyEvent.VK_LEFT},
-                            {KeyEvent.VK_RIGHT},
-                            {KeyEvent.VK_UP},
-                            {KeyEvent.VK_DOWN},
-                            {KeyEvent.VK_LEFT, KeyEvent.VK_UP},
-                            {KeyEvent.VK_RIGHT, KeyEvent.VK_UP},
-                            {KeyEvent.VK_LEFT, KeyEvent.VK_DOWN},
-                            {KeyEvent.VK_RIGHT, KeyEvent.VK_DOWN}
-                    };
+            int[] combo = keyCombos[Random.nextInt(0, keyCombos.length)];
+            for (int key : combo) Keyboard.pressKey(key);
+            Execution.delay((int)getGaussian(500, 1800, 1150, 400));
+            for (int key : combo) Keyboard.releaseKey(key);
+            System.out.println("🎥 Arrow-key camera move");
+        }
+        lastCameraMoveTime = System.currentTimeMillis();
 
-                    int[] combo = keyCombos[Random.nextInt(0, keyCombos.length)];
-                    for (int key : combo) Keyboard.pressKey(key);
-                    Execution.delay(Random.nextInt(500, 1800));
-                    for (int key : combo) Keyboard.releaseKey(key);
-                    System.out.println("🎥 Arrow-key camera move");
-                }
-                lastCameraMoveTime = System.currentTimeMillis();
-
-
-        // Post-action delay (variable)
-        Execution.delay(Random.nextInt(200, 1500));
+        // Post-action delay (gaussian)
+        Execution.delay((int)getGaussian(200, 1500, 850, 400));
     }
 
     public void performAntiBan() {
         System.out.println("🛡️ Performing anti-ban action...");
 
-        // Weighted action pool (more entries = higher chance)
         int[] weightedActions = {
                 0, 0, 0, 0, 0, // Camera movement (most common)
                 1, 1,             // Hover player
@@ -142,61 +117,7 @@ public class AntiBan {
 
         switch (action) {
             case 0: // Camera Movement (Arrow Keys or Middle-Mouse)
-                if (Random.nextInt(0,10) < 3) { // 30% chance for middle-mouse drag
-                    int curYaw   = Camera.getYaw();
-                    double curP  = Camera.getPitch();
-                    System.out.printf("[Cam] current yaw=%d, pitch=%.2f%n", curYaw, curP);
-
-                    // 2) choose Δ but enforce |Δyaw| ≥ 30°, |Δpitch| ≥ 0.20
-                    int rawDy     = ThreadLocalRandom.current().nextInt(-45, 46);
-                    int dy        = (Math.abs(rawDy) < 30 ? (rawDy < 0 ? -30 : 30) : rawDy);
-                    double rawDp  = ThreadLocalRandom.current().nextDouble(-0.25, 0.26);
-                    double dp     = (Math.abs(rawDp) < 0.20 ? (rawDp < 0 ? -0.20 : 0.20) : rawDp);
-
-                    int tgtYaw   = (curYaw + dy + 360) % 360;
-                    double tgtP  = Math.max(0, Math.min(1, curP + dp));
-                    System.out.printf("[Cam] target yaw=%d (Δ%+d), pitch=%.2f (Δ%+.2f)%n",
-                            tgtYaw, dy, tgtP, dp);
-
-                    // 3) async turn (tolerance only affects “when to stop”)
-                    double tol = ThreadLocalRandom.current().nextDouble(0.05, 0.15);
-                    System.out.printf("[Cam] turning tol=%.2f%n", tol);
-                    Camera.concurrentlyTurnTo(tgtYaw, tgtP, tol);  // built-in micro-jitter :contentReference[oaicite:0]{index=0}
-
-                    // 4) wait 500–800ms or until done
-                    Execution.delayUntil(
-                            () -> !Camera.isTurning(),
-                            () -> false,
-                            500, 800
-                    );                                              // yields to RM loop :contentReference[oaicite:1]{index=1}
-
-                    // 5) log result
-                    int finYaw   = Camera.getYaw();
-                    double finP  = Camera.getPitch();
-                    int diffYaw  = Math.min(Math.abs(finYaw - tgtYaw), 360 - Math.abs(finYaw - tgtYaw));
-                    double diffP = Math.abs(finP - tgtP);
-                    boolean ok   = diffYaw <= tol * 360 && diffP <= tol;
-                    System.out.printf("[Cam] final yaw=%d, pitch=%.2f → Δyaw=%d, Δpitch=%.2f → %s%n",
-                            finYaw, finP, diffYaw, diffP, ok ? "OK" : "MISS");
-                } else { // 70% chance for arrow keys
-                    int[][] keyCombos = {
-                            {KeyEvent.VK_LEFT},
-                            {KeyEvent.VK_RIGHT},
-                            {KeyEvent.VK_UP},
-                            {KeyEvent.VK_DOWN},
-                            {KeyEvent.VK_LEFT, KeyEvent.VK_UP},
-                            {KeyEvent.VK_RIGHT, KeyEvent.VK_UP},
-                            {KeyEvent.VK_LEFT, KeyEvent.VK_DOWN},
-                            {KeyEvent.VK_RIGHT, KeyEvent.VK_DOWN}
-                    };
-
-                    int[] combo = keyCombos[Random.nextInt(0, keyCombos.length)];
-                    for (int key : combo) Keyboard.pressKey(key);
-                    Execution.delay(Random.nextInt(500, 1800));
-                    for (int key : combo) Keyboard.releaseKey(key);
-                    System.out.println("🎥 Arrow-key camera move");
-                }
-                lastCameraMoveTime = System.currentTimeMillis();
+                rotateCamera();
                 break;
 
             case 1: // Hover Player
@@ -205,12 +126,12 @@ public class AntiBan {
                 if (player != null) {
                     Mouse.move(player);
                     System.out.println("👤 Hovered player: " + player.getName());
-                    Execution.delay(Random.nextInt(300, 800));
+                    Execution.delay((int)getGaussian(300, 800, 550, 150));
 
                     if (Random.nextInt(0, 5) == 0) { // ~20% chance to right-click
-                        Mouse.click(Mouse.Button.RIGHT); // Right-click
+                        Mouse.click(Mouse.Button.RIGHT);
                         System.out.println("🖱️ Right-clicked player.");
-                        Execution.delay(Random.nextInt(200, 400));
+                        Execution.delay((int)getGaussian(200, 400, 300, 70));
                     }
                 }
                 break;
@@ -220,12 +141,12 @@ public class AntiBan {
                 if (npc != null) {
                     Mouse.move(npc);
                     System.out.println("🧟 Hovered NPC: " + npc.getName());
-                    Execution.delay(Random.nextInt(300, 800));
+                    Execution.delay((int)getGaussian(300, 800, 550, 150));
 
                     if (Random.nextInt(0, 5) == 0) { // ~20% chance to right-click
-                        Mouse.click(Mouse.Button.RIGHT); // Right-click
+                        Mouse.click(Mouse.Button.RIGHT);
                         System.out.println("🖱️ Right-clicked NPC.");
-                        Execution.delay(Random.nextInt(200, 400));
+                        Execution.delay((int)getGaussian(200, 400, 300, 70));
                     }
                 }
                 break;
@@ -237,9 +158,10 @@ public class AntiBan {
                         .random();
 
                 if (obj != null) {
-                    for (int i = 0; i < Random.nextInt(5, 15); i++) {
+                    int moves = (int)getGaussian(5, 15, 10, 3);
+                    for (int i = 0; i < moves; i++) {
                         Mouse.move(obj.getPosition());
-                        Execution.delay(Random.nextInt(50, 150));
+                        Execution.delay((int)getGaussian(50, 150, 100, 30));
                     }
                     System.out.println("🖱️ Moved mouse to object");
                 }
@@ -248,10 +170,10 @@ public class AntiBan {
             case 4: // Camera Zoom (with cooldown & double scroll chance)
                 if (System.currentTimeMillis() - lastZoomTime > TimeUnit.MINUTES.toMillis(2)) {
                     boolean zoomIn = Random.nextBoolean();
-                    int scrolls = Random.nextInt(0,10) < 3 ? 2 : 1; // 30% chance for double scroll
+                    int scrolls = Random.nextInt(0,10) < 3 ? 2 : 1;
                     for (int i = 0; i < scrolls; i++) {
                         Mouse.scroll(zoomIn);
-                        Execution.delay(Random.nextInt(100, 300));
+                        Execution.delay((int)getGaussian(100, 300, 200, 70));
                     }
                     System.out.println("🔍 Zoomed " + (zoomIn ? "in" : "out") + (scrolls > 1 ? " (x2)" : ""));
                     lastZoomTime = System.currentTimeMillis();
@@ -262,30 +184,32 @@ public class AntiBan {
                 boolean goToInventory = Random.nextBoolean();
 
                 if (goToInventory) {
-                    Keyboard.pressKey(KeyEvent.VK_F1); // Inventory
+                    Keyboard.pressKey(KeyEvent.VK_F1);
                     System.out.println("📂 Switched to Inventory tab.");
                 } else {
-                    Keyboard.pressKey(KeyEvent.VK_F2); // Skills
+                    Keyboard.pressKey(KeyEvent.VK_F2);
                     System.out.println("📊 Switched to Skills tab.");
                 }
 
-                Execution.delay(Random.nextInt(400, 1200)); // Random human-like delay
+                Execution.delay((int)getGaussian(400, 1200, 800, 250));
                 break;
+
             case 6: // Idle (AFK)
-                int delay = Random.nextInt(0, 30) < 2 ? Random.nextInt(30000, 60000) : Random.nextInt(6000, 15000);
+                int delay = Random.nextInt(0, 30) < 2 ?
+                        (int)getGaussian(30000, 60000, 45000, 10000) :
+                        (int)getGaussian(6000, 15000, 10500, 3000);
                 System.out.println("😴 Idling for " + (delay / 1000) + "s");
                 Execution.delay(delay);
                 break;
         }
 
-        // Post-action delay (variable)
-        Execution.delay(Random.nextInt(200, 1500));
+        // Post-action delay (gaussian)
+        Execution.delay((int)getGaussian(200, 1500, 850, 400));
     }
 
     public void performBreakLogic(int breakmin, int breakmax) {
-        // Break logic
         if (System.currentTimeMillis() >= nextBreakTime) {
-            int length = Random.nextInt(breakmin, breakmax + 1);
+            int length = (int)getGaussian(breakmin, breakmax, (breakmin+breakmax)/2, (breakmax-breakmin)/4);
             System.out.println("[SimpleFisher] Taking break for " + length + "s");
             if (RuneScape.isLoggedIn()) { RuneScape.logout(true); }
             Execution.delay(length * 1000);
@@ -295,9 +219,8 @@ public class AntiBan {
     }
 
     private void scheduleNextBreak(int breakmin, int breakmax) {
-        int interval = Random.nextInt(breakmin, breakmax + 1);
+        int interval = (int)getGaussian(breakmin, breakmax, (breakmin+breakmax)/2, (breakmax-breakmin)/4);
         nextBreakTime = System.currentTimeMillis() + interval * 1000L;
         System.out.println("[SimpleFisher] Next break in " + interval + "s");
     }
-
 }

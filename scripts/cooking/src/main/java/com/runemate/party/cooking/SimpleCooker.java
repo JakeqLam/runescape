@@ -8,8 +8,6 @@ import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
-import com.runemate.game.api.hybrid.location.navigation.Path;
-import com.runemate.game.api.hybrid.location.navigation.basic.BresenhamPath;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.calculations.Random;
@@ -35,47 +33,57 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
     private static final Map<CookingLocation, Area> cookingLocationToBank = new HashMap<>();
 
     private Pathfinder pathfinder;
-    private long nextBreakTime;
     AntiBan antiBan;
     GPTNavigation navigation;
     private boolean settingsConfirmed;
 
     static {
-        // F2P
-        cookingLocationToBank.put(CookingLocation.AL_KHARID, new Area.Rectangular(new Coordinate(3269, 3167, 0), new Coordinate(3271, 3165, 0))); // Al Kharid Bank
-//        cookingLocationToBank.put(CookingLocation.VARROCK_EAST, new Area.Rectangular(new Coordinate(3250, 3420, 0), new Coordinate(3253, 3418, 0))); // Varrock East Bank
-//        cookingLocationToBank.put(CookingLocation.LUMBRIDGE_CASTLE, new Area.Rectangular(new Coordinate(3207, 3220, 2), new Coordinate(3209, 3218, 2))); // Lumbridge Top Floor Bank
-//        cookingLocationToBank.put(CookingLocation.EDGEVILLE_FIRE, new Area.Rectangular(new Coordinate(3092, 3499, 0), new Coordinate(3094, 3497, 0))); // Edgeville Bank
+        cookingLocationToBank.put(CookingLocation.AL_KHARID, new Area.Rectangular(new Coordinate(3269, 3167, 0), new Coordinate(3271, 3165, 0)));
+        cookingLocationToBank.put(CookingLocation.ROGUES_DEN, new Area.Rectangular(new Coordinate(3044, 4971, 1), new Coordinate(3046, 4969, 1)));
+        cookingLocationToBank.put(CookingLocation.HOSIDIUS_KITCHEN, new Area.Rectangular(new Coordinate(1714, 3616, 0), new Coordinate(1716, 3614, 0)));
+        cookingLocationToBank.put(CookingLocation.CATHERBY_RANGE, new Area.Rectangular(new Coordinate(2808, 3441, 0), new Coordinate(2810, 3439, 0)));
+        cookingLocationToBank.put(CookingLocation.COOKING_GUILD, new Area.Rectangular(new Coordinate(3209, 3217, 1), new Coordinate(3211, 3215, 1)));
+    }
 
-        // P2P
-        cookingLocationToBank.put(CookingLocation.ROGUES_DEN, new Area.Rectangular(new Coordinate(3044, 4971, 1), new Coordinate(3046, 4969, 1))); // Rogues' Den Bank
-        cookingLocationToBank.put(CookingLocation.HOSIDIUS_KITCHEN, new Area.Rectangular(new Coordinate(1714, 3616, 0), new Coordinate(1716, 3614, 0))); // Hosidius Bank
-        cookingLocationToBank.put(CookingLocation.CATHERBY_RANGE, new Area.Rectangular(new Coordinate(2808, 3441, 0), new Coordinate(2810, 3439, 0))); // Catherby Bank
-        cookingLocationToBank.put(CookingLocation.COOKING_GUILD, new Area.Rectangular(new Coordinate(3209, 3217, 1), new Coordinate(3211, 3215, 1))); // Cooking Guild Bank
+    // Gaussian random number within bounds (min, max) with mean and std deviation
+    private double getGaussian(double min, double max, double mean, double stdDev) {
+        double value;
+        do {
+            value = Random.nextGaussian(min, max, mean, stdDev);
+        } while (value < min || value > max);
+        return value;
+    }
+
+    private boolean shouldMisclick() {
+        return Random.nextInt(100) < 15; // 15% chance to misclick
+    }
+
+    private void misclickNear(Coordinate base) {
+        Coordinate offset = new Coordinate(
+                base.getX() + (int)getGaussian(-2, 2, 0, 1),
+                base.getY() + (int)getGaussian(-2, 2, 0, 1),
+                base.getPlane()
+        );
+        Mouse.move(offset);
+        Execution.delay((int)getGaussian(150, 300, 225, 50));
+        Mouse.click(Mouse.Button.LEFT);
+        Execution.delay((int)getGaussian(800, 1200, 1000, 150));
     }
 
     @Override
     public void onStart(String... args) {
-        // Initialize settings UI and listener
-        antiBan= new AntiBan();
+        antiBan = new AntiBan();
         navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
-        // Populate initial values
-        nextBreakTime = System.currentTimeMillis() + (Random.nextInt(5000,7000) * 1000L);
         pathfinder = Pathfinder.create(this);
     }
 
     @Override
     public void onLoop() {
-        if (!settingsConfirmed) {
-            return;
-        }
-
+        if (!settingsConfirmed) return;
         if (Players.getLocal() == null || !RuneScape.isLoggedIn()) return;
 
-        // 1) Break logic
-        antiBan.performBreakLogic(settings.getBreakMin(),settings.getBreakMax());
-
+        antiBan.performBreakLogic(settings.getBreakMin(), settings.getBreakMax());
         antiBan.maybePerformAntiBan();
 
         if (Inventory.contains(settings.getFoodType().getRawName())) {
@@ -85,7 +93,7 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             System.out.println("No raw food in inventory. Walking to bank to withdraw.");
             if (isAllFoodCooked()) {
                 System.out.println("All food cooked. Stopping bot.");
-               stop();
+                stop();
                 return;
             }
             walkToBankAndWithdraw();
@@ -96,19 +104,18 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         if (!Bank.isOpen()) {
             GameObject bankBooth = GameObjects.newQuery().actions("Bank").results().nearest();
             if (bankBooth != null && bankBooth.interact("Bank")) {
-                Execution.delayUntil(Bank::isOpen, 2000, 5000);
+                Execution.delayUntil(Bank::isOpen,
+                        (int)getGaussian(2000, 5000, 3500, 1000));
             }
         }
 
         if (Bank.isOpen()) {
             boolean rawFoodInBank = Bank.contains(settings.getFoodType().getRawName());
-
             if (!rawFoodInBank) {
                 System.out.println("All food is cooked. No raw food left in the bank.");
                 return true;
             }
         }
-
         return false;
     }
 
@@ -129,99 +136,61 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
         if (cookingObject != null && cookingObject.isVisible()) {
             System.out.println("🍳 Cooking object found: " + cookingObject + ". Attempting to cook...");
 
-            // --- MISCLICK SIMULATION (15% chance) ---
-            if (Random.nextInt(0, 100) < 15) {
+            if (shouldMisclick()) {
                 System.out.println("🤖 Simulating misclick...");
-
-                // Misclick near the object but still inside the building
-                Coordinate objectTile = cookingObject.getPosition();
-                Coordinate misclickTile = null;
-
-                int tries = 0;
-                while (misclickTile == null && tries < 10) {
-                    Coordinate attempt = objectTile.randomize(2, 2);
-                    if (cookingArea.contains(attempt)) {
-                        misclickTile = attempt;
-                    }
-                    tries++;
-                }
-
-                if (misclickTile != null) {
-                    Mouse.move(misclickTile);
-                    Execution.delay(Random.nextInt(150, 300));
-                    Mouse.click(Mouse.Button.LEFT);
-
-                    Execution.delay(Random.nextInt(800, 1200));
-                    System.out.println("🔄 Correcting misclick...");
-                }
+                misclickNear(cookingObject.getPosition());
+                System.out.println("🔄 Correcting misclick...");
             }
 
-            // --- MAIN COOKING LOGIC ---
-            Execution.delay(Random.nextInt(500, 800)); // Human reaction delay
+            Execution.delay((int)getGaussian(500, 800, 650, 100));
 
             if (cookingObject.interact("Cook")) {
+                Execution.delay((int)getGaussian(4000, 5100, 4500, 400));
 
-                Execution.delay(Random.nextInt(4000, 5100)); // Human reaction delay
+                System.out.println("📋 Cooking interface appeared");
+                Execution.delay((int)getGaussian(300, 800, 550, 150));
 
-                    System.out.println("📋 Cooking interface appeared");
+                if (Random.nextInt(100) < 4) {
+                    System.out.println("⌨️ Simulating keypress fumble...");
+                    Keyboard.typeKey(KeyEvent.VK_SHIFT);
+                    Execution.delay((int)getGaussian(200, 400, 300, 70));
+                }
 
-                    // Random delay before pressing space (human hesitation)
-                    Execution.delay(Random.nextInt(300, 800));
+                Keyboard.typeKey(KeyEvent.VK_SPACE);
+                System.out.println("✅ Confirmed cooking");
 
-                    // Simulate potential keypress fumble (4% chance)
-                    if (Random.nextInt(0,100) < 4) {
-                        System.out.println("⌨️ Simulating keypress fumble...");
-                        Keyboard.typeKey(KeyEvent.VK_SHIFT); // Wrong key
-                        Execution.delay(Random.nextInt(200, 400));
-                    }
+                boolean startedCooking = Execution.delayUntil(
+                        () -> Players.getLocal().getAnimationId() != -1,
+                        (int)getGaussian(800, 1500, 1150, 250),
+                        (int)getGaussian(3000, 5000, 4000, 700)
+                );
 
-                    Keyboard.typeKey(KeyEvent.VK_SPACE);
-                    System.out.println("✅ Confirmed cooking");
-
-                    // Wait for animation with anti-ban checks
-                    boolean startedCooking = Execution.delayUntil(
-                            () -> Players.getLocal().getAnimationId() != -1,
-                            Random.nextInt(800, 1500),
-                            Random.nextInt(3000, 5000)
-                    );
-
-                    if (startedCooking) {
-                        System.out.println("🔥 Cooking started");
-
-                        // --- ANIMATION LOOP WITH ANTI-BAN ---
-                        while (Players.getLocal().getAnimationId() != -1) {
-                            Execution.delay(Random.nextInt(1000, 2000));
-
-                            // Anti-ban
-                            antiBan.maybePerformAntiBan();
-
-                            // Small chance of early exit (like misclick)
-                            if (Random.nextInt(0,100) < 1) {
-                                System.out.println("🚪 Simulating early exit");
-                                break;
-                            }
+                if (startedCooking) {
+                    System.out.println("🔥 Cooking started");
+                    while (Players.getLocal().getAnimationId() != -1) {
+                        Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
+                        antiBan.maybePerformAntiBan();
+                        if (Random.nextInt(100) < 1) {
+                            System.out.println("🚪 Simulating early exit");
+                            break;
                         }
-                    } else {
-                        System.out.println("⚠️ Failed to start cooking");
-                        // Recover by trying again after delay
-                        Execution.delay(Random.nextInt(2000, 3000));
                     }
-
+                } else {
+                    System.out.println("⚠️ Failed to start cooking");
+                    Execution.delay((int)getGaussian(2000, 3000, 2500, 350));
+                }
             }
-
         } else {
             System.out.println("🚶 Cooking object not found or not visible. Walking to cooking area.");
             if (!cookingArea.contains(Players.getLocal())) {
-                navigation.walkToArea(cookingArea,pathfinder);
+                navigation.walkToArea(cookingArea, pathfinder);
             }
-            Execution.delay(Random.nextInt(600, 1200));
+            Execution.delay((int)getGaussian(600, 1200, 900, 200));
         }
     }
 
-
     private void walkToBankAndWithdraw() {
         Area closestBank = cookingLocationToBank.get(settings.getLocation());
-
         if (closestBank == null) {
             System.out.println("❌ No associated bank area found for location: " + settings.getLocation());
             return;
@@ -229,15 +198,16 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
 
         if (Bank.isOpen()) {
             System.out.println("✅ Bank opened. Depositing inventory.");
-            Execution.delay(Random.nextInt(300, 800));
+            Execution.delay((int)getGaussian(300, 800, 550, 150));
             Bank.depositInventory();
 
-            Execution.delay(Random.nextInt(1000, 2400)); // Delay before withdrawal
+            Execution.delay((int)getGaussian(1000, 2400, 1700, 500));
             String rawFoodName = settings.getFoodType().getRawName();
             System.out.println("🎣 Withdrawing raw food: " + rawFoodName);
-            Bank.withdraw(rawFoodName, 28);
+            Bank.withdraw(rawFoodName, 0);
 
-            Execution.delayUntil(() -> Inventory.contains(rawFoodName), 2000, 4000);
+            Execution.delayUntil(() -> Inventory.contains(rawFoodName),
+                    (int)getGaussian(2000, 4000, 3000, 700));
 
             if (!Inventory.contains(rawFoodName)) {
                 System.out.println("❌ Withdrawal failed or no raw food left.");
@@ -245,20 +215,20 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
                 System.out.println("✅ Withdrawal successful.");
             }
 
-            Execution.delay(Random.nextInt(300, 700)); // Delay before closing bank
+            Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
             System.out.println("🔐 Closing bank.");
             Bank.close();
-
-            Execution.delay(Random.nextInt(400, 1000)); // Short pause after interaction
-        } else  {
+            Execution.delay((int)getGaussian(400, 1000, 700, 200));
+        } else {
             System.out.println("🏦 Bank is closed. Attempting to open bank.");
-            Execution.delay(Random.nextInt(400, 800));
+            Execution.delay((int)getGaussian(400, 800, 600, 150));
 
             GameObject bank = GameObjects.newQuery().actions("Bank").results().nearest();
             if (bank != null) {
-                Execution.delay(Random.nextInt(2500, 3500)); // Simulate hesitation
+                Execution.delay((int)getGaussian(2500, 3500, 3000, 350));
                 if (bank.interact("Bank")) {
-                    Execution.delayUntil(Bank::isOpen, 2000, 5000);
+                    Execution.delayUntil(Bank::isOpen,
+                            (int)getGaussian(2000, 5000, 3500, 1000));
                 } else {
                     System.out.println("⚠️ Failed to interact with bank object.");
                 }
@@ -267,9 +237,9 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
             }
         }
 
-        if (!closestBank.contains(Players.getLocal()))
+        if (!closestBank.contains(Players.getLocal())) {
             navigation.walkToArea(closestBank, pathfinder);
-
+        }
     }
 
     @Override
@@ -279,13 +249,10 @@ public class SimpleCooker extends LoopingBot implements SettingsListener {
     }
 
     @Override
-    public void onSettingChanged(SettingChangedEvent settingChangedEvent) {
-
-    }
+    public void onSettingChanged(SettingChangedEvent settingChangedEvent) {}
 
     @Override
     public void onSettingsConfirmed() {
         settingsConfirmed = true;
     }
-
 }

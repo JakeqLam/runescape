@@ -64,7 +64,16 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     boolean isFishingInLumbridge;
 
     private long lastEarlyBankCheck = 0;
-    private long earlyBankCooldown = Random.nextInt(1, 3) * 60 * 1000; // 3–6 minutes
+    private long earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7);
+
+    // Gaussian random number within bounds (min, max) with mean and std deviation
+    private double getGaussian(double min, double max, double mean, double stdDev) {
+        double value;
+        do {
+            value = Random.nextGaussian(min, max, mean, stdDev);
+        } while (value < min || value > max);
+        return value;
+    }
 
     @Override
     public void onStart(String... args) {
@@ -83,25 +92,24 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         if (!settingsConfirmed) return;
         Player player = Players.getLocal();
         if (player == null) return;
-        
+
         // Break logic
         antiBan.performBreakLogic(settings.getBreakMin(), settings.getBreakMax());
 
         // Bank if inventory full
         int inventoryCount = Inventory.getItems().size();
-        long currentTime = System.currentTimeMillis();
-
-        // Check if it's time to consider early banking again
-        boolean shouldCheckEarlyBank = (currentTime - lastEarlyBankCheck) > earlyBankCooldown;
+        // Convert time values to seconds
+        long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        boolean shouldCheckEarlyBank = (currentTimeSeconds - lastEarlyBankCheck) > earlyBankCooldown;
         boolean earlyBankChance = shouldCheckEarlyBank && inventoryCount >= 24 && Random.nextInt(0, 100) < 10;
 
         if (Inventory.isFull() || earlyBankChance) {
-            System.out.println("[SimpleFisher] Banking (reason: " +
+            System.out.println("Banking (reason: " +
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
 
             if (earlyBankChance) {
-                earlyBankCooldown = (long) Random.nextInt(1, 3) * 60 * 1000;
-                lastEarlyBankCheck = currentTime; // Reset cooldown
+                earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7);  // Increase the standard deviation for better spread
+                lastEarlyBankCheck = currentTimeSeconds;
             }
 
             walkToAndDeposit();
@@ -127,16 +135,16 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 if (Random.nextInt(0, 100) < 8) {
                     System.out.println("[SimpleFisher] Simulating misclick near spot");
                     Mouse.move(spot.getPosition().randomize(3, 6));
-                    Execution.delay(Random.nextInt(200, 500));
+                    Execution.delay((int)getGaussian(200, 500, 350, 100));
                     Mouse.click(Mouse.Button.LEFT);
-                    Execution.delay(Random.nextInt(800, 1200));
+                    Execution.delay((int)getGaussian(800, 1200, 1000, 150));
                 }
                 System.out.println("[SimpleFisher] Interacting with spot: " + spotEnum + " via " + method);
                 if (spot.interact(method.getActionName())) {
                     Execution.delayUntil(
                             () -> player.getAnimationId() != -1,
-                            Random.nextInt(500,1000),
-                            Random.nextInt(3000,5000)
+                            (int)getGaussian(500, 1000, 750, 150),
+                            (int)getGaussian(3000, 5000, 4000, 700)
                     );
                 }
             }
@@ -144,13 +152,12 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
             if (spot != null) {
                 System.out.println("[SimpleFisher] Turning camera to spot");
                 Camera.turnTo(spot);
-                Execution.delay(200,400);
+                Execution.delay((int)getGaussian(200, 400, 300, 70));
             } else {
                 navigation.walkToArea(spotArea, pathfinder);
             }
         }
     }
-
 
     private void walkToAndDeposit() {
         Area closestBank;
@@ -167,7 +174,8 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         }
 
         // Walk to bank area with fallback
-        navigation.walkToArea(closestBank, pathfinder);
+        while (!closestBank.contains(Players.getLocal()))
+            navigation.walkToArea(closestBank, pathfinder);
 
         // Interact with bank booth/chest
         GameObject bank = GameObjects.newQuery()
@@ -176,7 +184,8 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 .nearest();
 
         if (bank != null && bank.interact("Bank")) {
-            Execution.delayUntil(Bank::isOpen, 2000, 4000);
+            Execution.delayUntil(Bank::isOpen,
+                    (int)getGaussian(6000, 8000, 7000, 700));
             System.out.println("[SimpleFisher] Bank opened, depositing items");
             // Deposit all except tools and bait
             FishingMethod method = settings.getMethod();
@@ -190,28 +199,34 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 System.out.println("[SimpleFisher] Deposited all items");
             }
 
+            Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
+
             // Always close the bank after depositing
             if (Bank.isOpen()) {
                 Bank.close();
                 // Add short delay to account for bank closure animation
-                Execution.delay(300, 600);
+                Execution.delay((int)getGaussian(300, 600, 450, 100));
             }
 
-            Execution.delayUntil(() -> !Bank.isOpen(), 1000, 3000);
+            Execution.delayUntil(() -> !Bank.isOpen(),
+                    (int)getGaussian(1000, 3000, 2000, 700));
             System.out.println("[SimpleFisher] Deposit complete, closing bank");
         } else {
             System.out.println("[SimpleFisher] Failed to open bank, fallback clicking bank area");
             // fallback: click center of bank area
             Coordinate clickPoint = closestBank.getCenter().randomize(2, 2);
             Mouse.move(clickPoint);
-            Execution.delay(200, 400);
+            Execution.delay((int)getGaussian(200, 400, 300, 70));
             Mouse.click(Mouse.Button.LEFT);
-            Execution.delayUntil(Bank::isOpen, 2000, 4000);
+            Execution.delayUntil(Bank::isOpen,
+                    (int)getGaussian(2000, 4000, 3000, 700),
+                    (int)getGaussian(4000, 6000, 5000, 700));
         }
     }
 
-
     @Override public void onStop() { System.out.println("[SimpleFisher] Stopped."); }
-    @Override public void onSettingChanged(SettingChangedEvent e) {        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP); }
+    @Override public void onSettingChanged(SettingChangedEvent e) {
+        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
+    }
     @Override public void onSettingsConfirmed() { settingsConfirmed = true; }
 }

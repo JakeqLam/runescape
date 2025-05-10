@@ -38,23 +38,28 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
     // Cached settings
     private boolean useP2P;
-
     private boolean movingToBank;
-
-    AntiBan antiBan;
+    private AntiBan antiBan;
     private GPTNavigation navigation;
-
     private boolean settingsConfirmed;
-
     private Pathfinder pathfinder;
-
     private final Set<Coordinate> contestedRocks = new HashSet<>();
     private long contestedClearTime = System.currentTimeMillis();
+    private long lastEarlyBankCheck;
+    private long earlyBankCooldown;
+
+    // Gaussian random number within bounds (min, max) with mean and std deviation
+    private double getGaussian(double min, double max, double mean, double stdDev) {
+        double value;
+        do {
+            value = Random.nextGaussian(min, max, mean, stdDev);
+        } while (value < min || value > max);
+        return value;
+    }
 
     @Override
     public void onStart(String... args) {
-        // Initialize settings UI and listener
-        antiBan= new AntiBan();
+        antiBan = new AntiBan();
         navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
         pathfinder = Pathfinder.create(this);
@@ -62,20 +67,20 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
     public void depositOresInBank() {
         if (Bank.isOpen()) {
-            // Click the "Deposit All" button
             Bank.depositInventory();
-            Execution.delayUntil(() -> !Bank.isOpen(), 2000, 4000); // Wait until the bank window closes
+            Execution.delayUntil(() -> !Bank.isOpen(),
+                    (int)getGaussian(2000, 4000, 3000, 700));
             System.out.println("Deposited all items in the bank.");
 
-            // Close the bank window
+            Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
+
             if (Bank.isOpen()) {
                 Bank.close();
-                Execution.delay(1000, 2000); // Add a small delay to make sure the bank closes properly
+                Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
                 System.out.println("Bank window closed.");
                 movingToBank = false;
                 navigation.walkToArea(settings.getLocation().getArea(), pathfinder);
             }
-
         } else {
             System.out.println("Bank is not open, cannot deposit items.");
         }
@@ -97,7 +102,6 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             closestBank = preferredBank.getArea();
         }
 
-
         if (Players.getLocal() == null) {
             System.out.println("❌ Invalid bank area or player.");
             return;
@@ -108,21 +112,19 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             navigation.walkToArea(closestBank, pathfinder);
         }
 
+        Execution.delay((int)getGaussian(8000, 10000, 9000, 700));
 
-        Execution.delay(8000, 10000);
-
-        // 🔍 Once in range, try to find a bank object and interact
         GameObject nearestBank = GameObjects.newQuery()
                 .actions("Bank")
                 .results()
                 .nearest();
 
         if (nearestBank != null && nearestBank.interact("Bank")) {
-            Execution.delayUntil(Bank::isOpen, Random.nextInt(6000, 8000));
+            Execution.delayUntil(Bank::isOpen,
+                    (int)getGaussian(6000, 8000, 7000, 700));
             depositOresInBank();
         } else {
-            if (Bank.isOpen())
-            {
+            if (Bank.isOpen()) {
                 depositOresInBank();
             }
             System.out.println("⚠️ Could not find a bank object to interact with.");
@@ -135,24 +137,26 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             return;
         }
 
-        // 1) Break logic
         antiBan.performBreakLogic(settings.getBreakMin(), settings.getBreakMax());
 
-//        // 2) World‑hop if too many players
-//        if (Players.getLoaded().size() > 2) {
-//            Worlds.newQuery()
-//                    .filter(w -> w.isMembersOnly() == useP2P && w.getId() != Worlds.getCurrent())
-//                    .results()
-//                    .random()
-//                            .
-//            Execution.delayUntil(() -> Players.getLoaded().size() <= 2, 5000);
-//            return random.nextInt(500, 1000);
-//        }
+        // Bank if inventory full
+        int inventoryCount = Inventory.getItems().size();
+        // Convert time values to seconds
+        long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        boolean shouldCheckEarlyBank = (currentTimeSeconds - lastEarlyBankCheck) > earlyBankCooldown;
+        boolean earlyBankChance = shouldCheckEarlyBank && inventoryCount >= 24 && Random.nextInt(0, 100) < 10;
 
-// Banking if inventory is full
-        if (Inventory.isFull()) {
-            System.out.println("Walking to bank");
+        if (Inventory.isFull() || earlyBankChance) {
+            System.out.println("Banking (reason: " +
+                    (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
+
+            if (earlyBankChance) {
+                earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7); // Cooldown in seconds
+                lastEarlyBankCheck = currentTimeSeconds;
+            }
+
             walkToAndOpenBank();
+            return;
         }
 
         antiBan.maybePerformAntiBan();
@@ -163,8 +167,6 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             return;
         }
 
-
-        // 5) Mining
         maybeClearContestedRocks();
 
         String oreName = settings.getOreType().toString();
@@ -184,14 +186,14 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             if (someoneElseIsMining) {
                 System.out.println("⛏️ Rock is being mined by another player, skipping...");
                 contestedRocks.add(rock.getPosition());
-                Execution.delay(500, 1000);
+                Execution.delay((int)getGaussian(500, 1000, 750, 150));
                 return;
             }
         }
 
-
-        if (!movingToBank && rock == null)
+        if (!movingToBank && rock == null) {
             navigation.walkToArea(settings.getLocation().getArea(), pathfinder);
+        }
 
         if (rock != null && !rock.isVisible() && !movingToBank) {
             if (Distance.between(player, rock) > 8) {
@@ -216,43 +218,38 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             Camera.concurrentlyTurnTo(rock);
         }
 
-
         if (!Inventory.isFull()) {
-
-            // If player is idle (not mining or moving)
             if (player.getAnimationId() == -1 && !player.isMoving()) {
                 if (rock != null) {
                     // Misclick simulation (8% chance)
                     if (Random.nextInt(0,100) < 8) {
                         System.out.println("🤖 Simulating misclick...");
-                        // Click near the rock (but not on it)
-                        Mouse.move(rock.getPosition().randomize(1, 3)); // Offset by 5-10 pixels
-                        Execution.delay(Random.nextInt(200, 500));
+                        Mouse.move(rock.getPosition().randomize(1, 3));
+                        Execution.delay((int)getGaussian(200, 500, 350, 100));
                         Mouse.click(Mouse.Button.LEFT);
-                        Execution.delay(Random.nextInt(800, 1200)); // Pretend to realize mistake
+                        Execution.delay((int)getGaussian(800, 1200, 1000, 150));
                     }
 
                     // Actual mining attempt
                     if (rock.interact("Mine")) {
                         System.out.println("⛏️ Mining " + "...");
 
-                        // Wait for mining to start (with randomized delay)
                         if (!Execution.delayUntil(() -> player.getAnimationId() != -1 || player.isMoving(),
-                                Random.nextInt(400, 800), Random.nextInt(3000, 5000))) {
+                                (int)getGaussian(400, 800, 600, 150),
+                                (int)getGaussian(3000, 5000, 4000, 700))) {
                             System.out.println("❌ Failed to start mining.");
                             return;
                         }
                     }
                 }
             } else {
-                // Player is already mining/moving
-                Execution.delay(Random.nextInt(300, 700));
+                Execution.delay((int)getGaussian(300, 700, 500, 150));
             }
         }
     }
 
     private void maybeClearContestedRocks() {
-        if (System.currentTimeMillis() - contestedClearTime > 250_000) { // 2.5 minutes
+        if (System.currentTimeMillis() - contestedClearTime > 150_000) { // 2.5 minutes
             contestedRocks.clear();
             contestedClearTime = System.currentTimeMillis();
         }
@@ -263,7 +260,6 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         logger.info("Universal Miner stopped.");
     }
 
-    // Fired when any single setting changes
     @Override
     public void onSettingChanged(SettingChangedEvent event) {
         applySettings();
@@ -274,11 +270,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         settingsConfirmed = true;
     }
 
-    // Helper to read & cache settings
     private void applySettings() {
-
-        useP2P      = settings.getUseP2P();
-
+        useP2P = settings.getUseP2P();
     }
-
 }
