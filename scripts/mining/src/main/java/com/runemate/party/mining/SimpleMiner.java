@@ -13,6 +13,7 @@ import com.runemate.game.api.hybrid.location.navigation.Path;
 import com.runemate.game.api.hybrid.location.navigation.basic.BresenhamPath;
 import com.runemate.game.api.hybrid.location.navigation.cognizant.ScenePath;
 import com.runemate.game.api.hybrid.region.GameObjects;
+import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.calculations.Distance;
 import com.runemate.game.api.hybrid.util.calculations.Random;
@@ -161,7 +162,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
 
             if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(18, 26, 22, 0.7);// Cooldown in seconds
+                earlyBankCooldown = (long)getGaussian(18, 26, 22, 2.5);// Cooldown in seconds
                 lastEarlyBankCheck = currentTimeSeconds;
             }
 
@@ -231,13 +232,24 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         if (!Inventory.isFull()) {
             if (player.getAnimationId() == -1 && !player.isMoving()) {
                 if (rock != null) {
-                    // Misclick simulation (8% chance)
-                    if (Random.nextInt(0,100) < 8) {
+                    // Step 2: Misclick simulation (8% chance)
+                    if (Random.nextInt(0, 100) < 8) {
                         System.out.println("🤖 Simulating misclick...");
-                        Mouse.move(rock.getPosition().randomize(1, 1));
-                        Execution.delay((int)getGaussian(200, 500, 350, 100));
-                        Mouse.click(Mouse.Button.LEFT);
-                        Execution.delay((int)getGaussian(800, 1200, 1000, 150));
+                        Coordinate misclickTile = rock.getPosition().randomize(1, 1);
+                        Mouse.move(misclickTile);
+                        Execution.delay((int) getGaussian(200, 500, 350, 100));
+
+                        // Only click if mouse is NOT hovering an NPC (prevents attacking)
+                        if (!Npcs.newQuery()
+                                .actions("Attack")
+                                .filter(npc -> npc.contains(Mouse.getPosition()))
+                                .results()
+                                .isEmpty()) {
+                            System.out.println("⚠️ Misclick landed on a monster. Skipping click.");
+                        } else {
+                            Mouse.click(Mouse.Button.LEFT);
+                            Execution.delay((int) getGaussian(800, 1200, 1000, 150));
+                        }
                     }
 
                     // Actual mining attempt

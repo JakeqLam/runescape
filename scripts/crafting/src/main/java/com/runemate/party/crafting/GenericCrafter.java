@@ -100,11 +100,6 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     }
 
     private void handleTanning() {
-        if (!hasMaterialsForTanning()) {
-            System.out.println("[GenericCrafter] No more hides or coins available. Stopping bot.");
-            stop("No more materials to tan.");
-        }
-
         boolean hasHide = Inventory.contains(settings.getHideType().getRawName());
         boolean hasCoins = Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT;
 
@@ -160,7 +155,13 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
             Bank.close();
             Execution.delayUntil(() -> !Bank.isOpen(), (int)getGaussian(2000, 3000, 2500, 300));
+
             return;
+        }
+
+        if (!hasMaterialsForTanning()) {
+            System.out.println("[GenericCrafter] No more hides or coins available. Stopping bot.");
+            stop("No more materials to tan.");
         }
 
         Area tanningArea = getTanningArea();
@@ -297,11 +298,6 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     }
 
     private void bankForLeatherCrafting(String leatherName) {
-        if (!hasMaterialsForCrafting()) {
-            System.out.println("[GenericCrafter] No more materials to craft leather. Stopping bot.");
-            stop("Out of crafting materials.");
-        }
-
         if (!Bank.isOpen()) {
             if (!Bank.open()) return;
             Execution.delayUntil(Bank::isOpen, (int)getGaussian(2000, 3000, 2500, 300));
@@ -332,6 +328,11 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         Bank.close();
         Execution.delayUntil(() -> !Bank.isOpen(),
                 (int)getGaussian(2000, 3000, 2500, 300));
+
+        if (!hasMaterialsForCrafting()) {
+            System.out.println("[GenericCrafter] No more materials to craft leather. Stopping bot.");
+            stop("Out of crafting materials.");
+        }
     }
 
     private boolean shouldMisclick() {
