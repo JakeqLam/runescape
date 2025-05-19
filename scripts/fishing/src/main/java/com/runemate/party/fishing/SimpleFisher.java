@@ -108,7 +108,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
 
             if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7);  // Increase the standard deviation for better spread
+                earlyBankCooldown = (long)getGaussian(24, 36, 30, 0.7);  // Increase the standard deviation for better spread
                 lastEarlyBankCheck = currentTimeSeconds;
             }
 
@@ -183,9 +183,12 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 .results()
                 .nearest();
 
-        if (bank != null && bank.interact("Bank")) {
+        while (bank != null && !Bank.isOpen() && closestBank.contains(Players.getLocal())) {
+            Bank.open();
             Execution.delayUntil(Bank::isOpen,
-                    (int)getGaussian(6000, 8000, 7000, 700));
+                    (int) getGaussian(6000, 8000, 7000, 700));
+            if (Bank.isOpen()) {
+
             System.out.println("[SimpleFisher] Bank opened, depositing items");
             // Deposit all except tools and bait
             FishingMethod method = settings.getMethod();
@@ -199,29 +202,30 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
                 System.out.println("[SimpleFisher] Deposited all items");
             }
 
-            Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
+            Execution.delay((int) getGaussian(1000, 2000, 1500, 100));
 
-            // Always close the bank after depositing
-            if (Bank.isOpen()) {
-                Bank.close();
-                // Add short delay to account for bank closure animation
-                Execution.delay((int)getGaussian(300, 600, 450, 100));
+            } else {
+                System.out.println("[SimpleFisher] Failed to open bank, fallback clicking bank area");
+                // fallback: click center of bank area
+                Coordinate clickPoint = closestBank.getCenter().randomize(1,1);
+                Mouse.move(clickPoint);
+                Execution.delay((int) getGaussian(200, 400, 300, 70));
+                Mouse.click(Mouse.Button.LEFT);
+
+                Execution.delayUntil(Bank::isOpen,
+                        (int) getGaussian(4000, 6000, 5000, 700),
+                        (int) getGaussian(6000, 8000, 7000, 700));
             }
-
-            Execution.delayUntil(() -> !Bank.isOpen(),
-                    (int)getGaussian(1000, 3000, 2000, 700));
-            System.out.println("[SimpleFisher] Deposit complete, closing bank");
-        } else {
-            System.out.println("[SimpleFisher] Failed to open bank, fallback clicking bank area");
-            // fallback: click center of bank area
-            Coordinate clickPoint = closestBank.getCenter().randomize(2, 2);
-            Mouse.move(clickPoint);
-            Execution.delay((int)getGaussian(200, 400, 300, 70));
-            Mouse.click(Mouse.Button.LEFT);
-            Execution.delayUntil(Bank::isOpen,
-                    (int)getGaussian(2000, 4000, 3000, 700),
-                    (int)getGaussian(4000, 6000, 5000, 700));
         }
+
+        // Always close the bank after depositing
+        Bank.close();
+        // Add short delay to account for bank closure animation
+        Execution.delay((int) getGaussian(300, 600, 450, 100));
+
+        Execution.delayUntil(() -> !Bank.isOpen(),
+                (int) getGaussian(1000, 3000, 2000, 700));
+        System.out.println("[SimpleFisher] Deposit complete, closing bank");
     }
 
     @Override public void onStop() { System.out.println("[SimpleFisher] Stopped."); }

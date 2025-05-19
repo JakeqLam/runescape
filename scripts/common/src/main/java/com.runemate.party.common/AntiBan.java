@@ -27,7 +27,7 @@ public class AntiBan {
     private long nextBreakTime = System.currentTimeMillis() + (long)(getGaussian(9000, 11000, 10000, 800) * 1000L);
 
     private long getRandomCooldown() {
-        return (long)getGaussian(10_000, 100_000, 55_000, 22_500); // Gaussian between 10s and 100s
+        return (long)getGaussian(50_000, 100_000, 75_000, 12_500); // Gaussian between 10s and 100s
     }
 
     // Gaussian random number within bounds (min, max) with mean and std deviation

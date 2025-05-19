@@ -65,7 +65,12 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
         pathfinder = Pathfinder.create(this);
     }
 
-    public void depositOresInBank() {
+    public void depositOresInBank(Area bank) {
+
+        Bank.open();
+        Execution.delayUntil(Bank::isOpen,
+                (int) getGaussian(6000, 8000, 7000, 700));
+
         if (Bank.isOpen()) {
             Bank.depositInventory();
             Execution.delayUntil(() -> !Bank.isOpen(),
@@ -74,15 +79,18 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
             Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
 
-            if (Bank.isOpen()) {
-                Bank.close();
-                Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
-                System.out.println("Bank window closed.");
-                movingToBank = false;
-                navigation.walkToArea(settings.getLocation().getArea(), pathfinder);
-            }
+
         } else {
             System.out.println("Bank is not open, cannot deposit items.");
+            // fallback: click center of bank area
+            Coordinate clickPoint = bank.getCenter().randomize(1,1);
+            Mouse.move(clickPoint);
+            Execution.delay((int) getGaussian(200, 400, 300, 70));
+            Mouse.click(Mouse.Button.LEFT);
+
+            Execution.delayUntil(Bank::isOpen,
+                    (int) getGaussian(4000, 6000, 5000, 700),
+                    (int) getGaussian(6000, 8000, 7000, 700));
         }
     }
 
@@ -119,15 +127,17 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                 .results()
                 .nearest();
 
-        if (nearestBank != null && nearestBank.interact("Bank")) {
-            Execution.delayUntil(Bank::isOpen,
-                    (int)getGaussian(6000, 8000, 7000, 700));
-            depositOresInBank();
-        } else {
-            if (Bank.isOpen()) {
-                depositOresInBank();
-            }
-            System.out.println("⚠️ Could not find a bank object to interact with.");
+        while (nearestBank != null && !Bank.isOpen() && closestBank.contains(Players.getLocal())) {
+             depositOresInBank(closestBank);
+             System.out.println("⚠️ Could not find a bank object to interact with.");
+        }
+
+        if (Bank.isOpen()) {
+            Bank.close();
+            Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
+            System.out.println("Bank window closed.");
+            movingToBank = false;
+            navigation.walkToArea(settings.getLocation().getArea(), pathfinder);
         }
     }
 
@@ -151,7 +161,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
 
             if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7); // Cooldown in seconds
+                earlyBankCooldown = (long)getGaussian(18, 26, 22, 0.7);// Cooldown in seconds
                 lastEarlyBankCheck = currentTimeSeconds;
             }
 
@@ -224,7 +234,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
                     // Misclick simulation (8% chance)
                     if (Random.nextInt(0,100) < 8) {
                         System.out.println("🤖 Simulating misclick...");
-                        Mouse.move(rock.getPosition().randomize(1, 3));
+                        Mouse.move(rock.getPosition().randomize(1, 1));
                         Execution.delay((int)getGaussian(200, 500, 350, 100));
                         Mouse.click(Mouse.Button.LEFT);
                         Execution.delay((int)getGaussian(800, 1200, 1000, 150));

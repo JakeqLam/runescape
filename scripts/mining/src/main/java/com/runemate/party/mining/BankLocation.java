@@ -19,7 +19,8 @@ public enum BankLocation {
     ARDOUGNE_SOUTH(new Area.Rectangular(new Coordinate(2652, 3283, 0), new Coordinate(2658, 3289, 0))),
     CATHERBY(new Area.Rectangular(new Coordinate(2805, 3439, 0), new Coordinate(2810, 3444, 0))),
     YANILLE(new Area.Rectangular(new Coordinate(2610, 3090, 0), new Coordinate(2615, 3095, 0))),
-    ZEAH(new Area.Rectangular(new Coordinate(1634, 3762, 0), new Coordinate(1640, 3767, 0)));
+    ZEAH(new Area.Rectangular(new Coordinate(1634, 3762, 0), new Coordinate(1640, 3767, 0))),
+    LUMBRIDGE(new Area.Rectangular(new Coordinate(3207, 3220, 2), new Coordinate(3210, 3223, 2))); // 2nd floor banker area
 
     private final Area area;
 

@@ -55,6 +55,33 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
     private long earlyBankCooldown;
     private long lastEarlyBankCheck;
 
+
+    private long lastAttackAttemptTime = 0;
+    private Coordinate lastPositionBeforeStuck = null;
+    private int stuckCheckCounter = 0;
+    private static final int MAX_STUCK_CHECKS = 3;
+
+    private boolean isPlayerStuck() {
+        Player player = Players.getLocal();
+        if (player == null) return false;
+
+        // Check if we've been trying to attack for too long without success
+        if (System.currentTimeMillis() - lastAttackAttemptTime > 10000) { // 10 seconds
+            Coordinate currentPos = player.getPosition();
+            if (lastPositionBeforeStuck != null && currentPos.distanceTo(lastPositionBeforeStuck) < 2) {
+                stuckCheckCounter++;
+                if (stuckCheckCounter >= MAX_STUCK_CHECKS) {
+                    System.out.println("[Stuck Detection] Player appears stuck at position: " + currentPos);
+                    return true;
+                }
+            } else {
+                stuckCheckCounter = 0;
+                lastPositionBeforeStuck = currentPos;
+            }
+        }
+        return false;
+    }
+
     // Gaussian random number within bounds (min, max) with mean and std deviation
     private double getGaussian(double min, double max, double mean, double stdDev) {
         double value;
@@ -81,7 +108,12 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
     }
 
     private void openObstacle() {
+        Player player = Players.getLocal();
+        if (player == null) return;
+
+        // First check for obstacles near the player
         GameObject obstacle = GameObjects.newQuery()
+                .within(new Area.Circular(player.getPosition(), 3)) // 3 tile radius
                 .names("Door", "Gate", "Ladder", "Staircase", "Web", "Barrier", "Fence")
                 .actions("Open", "Climb", "Slash", "Pass", "Push", "Go-through", "Walk-through", "Enter")
                 .visibility(3)
@@ -89,14 +121,16 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                 .nearest();
 
         if (obstacle != null && obstacle.isVisible() && obstacle.isValid()) {
+            System.out.println("[Obstacle Handling] Found obstacle: " + obstacle);
             String[] actions = obstacle.getDefinition().getActions().toArray(new String[0]);
             if (actions != null) {
                 for (String action : actions) {
                     if (action != null && Arrays.asList("Open", "Climb", "Slash", "Pass", "Push", "Go-through", "Walk-through", "Enter").contains(action)) {
-                        System.out.println("[SimpleFighter] Interacting with: " + obstacle + " -> " + action);
-                        obstacle.interact(action);
-                        Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
-                        break;
+                        System.out.println("[Obstacle Handling] Attempting to " + action + " the obstacle");
+                        if (obstacle.interact(action)) {
+                            Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
+                            return;
+                        }
                     }
                 }
             }
@@ -199,8 +233,6 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                 .results()
                 .nearest();
 
-
-
         // Bank if inventory full
         int inventoryCount = Inventory.getItems().size();
         // Convert time values to seconds
@@ -213,7 +245,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
 
             if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7); // Cooldown in seconds
+                earlyBankCooldown = (long)getGaussian(8, 10, 9, 0.7); // Cooldown in seconds
                 lastEarlyBankCheck = currentTimeSeconds;
             }
 
@@ -262,18 +294,33 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
                     })
                     .results()
                     .nearest();
+
             Execution.delay((int)getGaussian(300, 450, 375, 50));
-            if (target != null && target.isVisible() && target.isValid()) {
-                System.out.println("[SimpleFighter] Attacking " + target.getName());
-                if (shouldMisclick()) {
-                    System.out.println("[SimpleFighter] Misclicking near NPC.");
-                    misclickNear(target.getPosition());
-                } else {
-                    target.interact("Attack");
+
+            if (target != null) {
+                lastAttackAttemptTime = System.currentTimeMillis();
+
+                // Check for obstacles if we're stuck
+                if (isPlayerStuck()) {
+                    System.out.println("[Obstacle Handling] Player stuck, checking for obstacles...");
+                    openObstacle();
+                    stuckCheckCounter = 0; // Reset counter after handling
+                    Execution.delay((int)getGaussian(1000, 2000, 1500, 300));
+                    return; // Let the next loop iteration handle attacking again
                 }
-                Execution.delay((int)getGaussian(600, 800, 700, 70));
-            } else if (target != null) {
-                Camera.turnTo(target);
+
+                if (target.isVisible() && target.isValid()) {
+                    System.out.println("[SimpleFighter] Attacking " + target.getName());
+                    if (shouldMisclick()) {
+                        System.out.println("[SimpleFighter] Misclicking near NPC.");
+                        misclickNear(target.getPosition());
+                    } else {
+                        target.interact("Attack");
+                    }
+                    Execution.delay((int)getGaussian(600, 800, 700, 70));
+                } else {
+                    Camera.turnTo(target);
+                }
             } else {
                 System.out.println("[SimpleFighter] No target found.");
             }
@@ -296,10 +343,22 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
 
         Execution.delay((int)getGaussian(2000, 3500, 2750, 500));
 
-        if (!Bank.isOpen()) {
+        while (!Bank.isOpen()) {
             Bank.open();
             Execution.delayUntil(Bank::isOpen,
                     (int)getGaussian(2000, 4000, 3000, 700));
+
+            if (!Bank.isOpen()) {
+                // fallback: click center of bank area
+                Coordinate clickPoint = bankArea.getCenter().randomize(1,1);
+                Mouse.move(clickPoint);
+                Execution.delay((int) getGaussian(200, 400, 300, 70));
+                Mouse.click(Mouse.Button.LEFT);
+
+                Execution.delayUntil(Bank::isOpen,
+                        (int) getGaussian(4000, 6000, 5000, 700),
+                        (int) getGaussian(6000, 8000, 7000, 700));
+            }
         }
 
         if (Bank.isOpen()) {
