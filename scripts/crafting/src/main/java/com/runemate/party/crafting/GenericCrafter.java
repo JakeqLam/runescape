@@ -35,7 +35,6 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
     private boolean settingsConfirmed;
 
     private static final String REQUIRED_GOLD_NAME = "Coins";
-    private static final int REQUIRED_GOLD_AMOUNT = 20;
     private GPTNavigation navigation;
 
     // Gaussian random number within bounds (min, max) with mean and std deviation
@@ -55,7 +54,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
     private boolean hasMaterialsForTanning() {
         return Inventory.contains(settings.getHideType().getRawName()) &&
-                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT;
+                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= settings.getRequiredGoldAmount();
     }
 
     private Area getTanningArea() {
@@ -101,15 +100,15 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
 
     private void handleTanning() {
         boolean hasHide = Inventory.contains(settings.getHideType().getRawName());
-        boolean hasCoins = Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT;
+        boolean hasCoins = Inventory.getQuantity(REQUIRED_GOLD_NAME) >= settings.getRequiredGoldAmount();
 
         if (!hasHide || !hasCoins) {
             System.out.println("Missing required materials. Opening bank...");
             if (!Bank.isOpen()) {
                 if (Bank.open()) {
-                    Execution.delayUntil(Bank::isOpen, (int)getGaussian(2000, 3000, 2500, 300));
+                    Execution.delayUntil(Bank::isOpen, (int) getGaussian(2000, 3000, 2500, 300));
                     System.out.println("Bank opened.");
-                    Execution.delay((int)getGaussian(500, 800, 650, 100));
+                    Execution.delay((int) getGaussian(500, 800, 650, 100));
                 } else {
                     System.out.println("Failed to open bank.");
                     return;
@@ -119,20 +118,22 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
             if (Inventory.containsAnyExcept(settings.getHideType().getRawName(), REQUIRED_GOLD_NAME)) {
                 System.out.println("Depositing all except hides and coins...");
                 Bank.depositInventory();
-                Execution.delay((int)getGaussian(500, 800, 650, 100));
+                Execution.delay((int) getGaussian(500, 800, 650, 100));
             }
 
-            if (!hasCoins) {
-                int requiredGoldAmount = settings.getRequiredGoldAmount();
-                int randomizedAmount = requiredGoldAmount * 10 + (int)getGaussian(-5, 5, 0, 3);
+            // Re-check after deposit
+            hasHide = Inventory.contains(settings.getHideType().getRawName());
+            hasCoins = Inventory.getQuantity(REQUIRED_GOLD_NAME) >= settings.getRequiredGoldAmount();
 
+            // Queue withdrawals
+            if (!hasCoins) {
                 Item coinsInBank = Bank.newQuery().names(REQUIRED_GOLD_NAME).results().first();
-                if (coinsInBank != null && coinsInBank.getQuantity() >= randomizedAmount) {
-                    Bank.withdraw(REQUIRED_GOLD_NAME, 1000);
+                if (coinsInBank != null && coinsInBank.getQuantity() >= settings.getRequiredGoldAmount()) {
+                    Bank.withdraw(REQUIRED_GOLD_NAME, settings.getRequiredGoldAmount());
                     Execution.delayUntil(() -> Inventory.contains(REQUIRED_GOLD_NAME),
-                            (int)getGaussian(2000, 3000, 2500, 300));
+                            (int) getGaussian(2000, 3000, 2500, 300));
                     System.out.println("Withdrew coins from bank.");
-                    Execution.delay((int)getGaussian(500, 800, 650, 100));
+                    Execution.delay((int) getGaussian(500, 800, 650, 100));
                 } else {
                     System.out.println("Not enough coins in bank.");
                 }
@@ -143,20 +144,18 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
                 if (hide != null) {
                     Bank.withdraw(settings.getHideType().getRawName(), 0);
                     Execution.delayUntil(() -> Inventory.contains(settings.getHideType().getRawName()),
-                            (int)getGaussian(2000, 3000, 2500, 300));
+                            (int) getGaussian(2000, 3000, 2500, 300));
                     System.out.println("Withdrew hides from bank.");
-                    Execution.delay((int)getGaussian(500, 800, 650, 100));
+                    Execution.delay((int) getGaussian(500, 800, 650, 100));
                 } else {
                     System.out.println("No hides in bank.");
                 }
             }
 
-            Execution.delay((int)getGaussian(1000, 2000, 1500, 100));
+            Execution.delay((int) getGaussian(1000, 2000, 1500, 100));
 
             Bank.close();
-            Execution.delayUntil(() -> !Bank.isOpen(), (int)getGaussian(2000, 3000, 2500, 300));
-
-            return;
+            Execution.delayUntil(() -> !Bank.isOpen(), (int) getGaussian(2000, 3000, 2500, 300));
         }
 
         if (!hasMaterialsForTanning()) {
@@ -171,7 +170,7 @@ public class GenericCrafter extends LoopingBot implements SettingsListener {
         }
 
         if (Inventory.contains(settings.getHideType().getRawName()) &&
-                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= REQUIRED_GOLD_AMOUNT) {
+                Inventory.getQuantity(REQUIRED_GOLD_NAME) >= settings.getRequiredGoldAmount()) {
 
             System.out.println("Trying to tan hides...");
 

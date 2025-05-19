@@ -26,6 +26,11 @@ public class GPTNavigation {
             return;
         }
 
+        if (targetArea.contains(Players.getLocal())) {
+            System.out.println("✅ Already in target area. No movement needed.");
+            return;
+        }
+
         System.out.println("📍 [Navigation] Attempting to walk to area: " + targetArea.getCenter());
 
         int attempts = 0;
@@ -33,6 +38,7 @@ public class GPTNavigation {
 
         while (attempts < MAX_ATTEMPTS && !reached) {
             if (targetArea.contains(Players.getLocal())) {
+                System.out.println("✅ Entered target area.");
                 reached = true;
                 break;
             }
@@ -51,6 +57,13 @@ public class GPTNavigation {
                 continue;
             }
 
+            // Additional early check before stepping
+            if (targetArea.contains(Players.getLocal())) {
+                System.out.println("✅ Already in target area (pre-step check). No need to walk.");
+                reached = true;
+                break;
+            }
+
             System.out.println("✅ Found valid path to: " + target);
             if (executePath(path, targetArea)) {
                 reached = true;
@@ -65,6 +78,7 @@ public class GPTNavigation {
             fallBack(targetArea, pathfinder);
         }
     }
+
 
     private Coordinate getOptimalCoordinate(Area area, Pathfinder pathfinder) {
         Coordinate center = area.getCenter();
@@ -118,7 +132,7 @@ public class GPTNavigation {
             // 80% chance to wait, 20% chance to continue immediately
             if (Random.nextInt(1, 100) <= 80) {
                 // Randomize the wait time when we do wait
-                Execution.delay(gaussianDelay(600, 150, 300, 1200));
+                Execution.delay(gaussianDelay(1600, 300, 1200, 2000));
 
                 // Small chance (20%) of an extra "hesitation" delay
                 if (Random.nextInt(1, 100) <= 20) {
@@ -126,7 +140,7 @@ public class GPTNavigation {
                 }
             } else {
                 // Even when continuing immediately, add a tiny delay (humans can't react instantly)
-                Execution.delay(Random.nextInt(50, 200));
+                Execution.delay(gaussianDelay(300, 100, 150, 600));
             }
 
             Coordinate currentPos = Players.getLocal().getPosition();
@@ -190,7 +204,7 @@ public class GPTNavigation {
         System.out.println("🔄 Attempting fallback navigation");
 
         // Try simple Bresenham path first
-        Path path = BresenhamPath.buildTo(targetArea.getCenter().randomize(10, 10));
+        Path path = BresenhamPath.buildTo(targetArea.getCenter().randomize(2, 2));
         if (path != null && path.isValid() && !targetArea.contains(Players.getLocal())) {
             if (path.step()) {
                 System.out.println("🚶 Stepping to fallback (Bresenham path)");
