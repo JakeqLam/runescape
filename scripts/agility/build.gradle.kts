@@ -15,9 +15,9 @@ runemate {
     submissionToken = ""
 
     manifests {
-        create("Simple Agility") {
-            mainClass = "com.runemate.party.agility.SimpleAgility"
-            tagline = "My simple Agility Trainer!"
+        create("Draynor Agility") {
+            mainClass = "com.runemate.party.agility.DraynorAgility"
+            tagline = "Draynor Agility Trainer!"
             description = "A simple Agility Trainer that does it all"
             version = "1.0.0"
             internalId = "example-Agility"
