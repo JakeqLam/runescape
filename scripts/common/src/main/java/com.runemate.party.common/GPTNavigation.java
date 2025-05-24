@@ -1,6 +1,7 @@
 package com.runemate.party.common;
 
 import com.runemate.game.api.client.ClientUI;
+import com.runemate.game.api.hybrid.entities.details.Locatable;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.location.navigation.Path;
@@ -52,14 +53,14 @@ public class GPTNavigation {
             int refinementTickCounter = 0;
 
             while (!targetArea.contains(Players.getLocal()) && path != null && path.isValid()) {
-                Coordinate nextStep = Objects.requireNonNull(path.getNext()).getPosition();
+                Locatable nextStep = path.getNext();
                 if (nextStep != null) {
-                    antiBan.alignCameraTo(nextStep);
-                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 50, 150);
-                    if (!path.step()) break;
-                    Execution.delay(gaussianDelay(600, 200, 300, 1200));
-                    handleAntiBan(Players.getLocal().getPosition());
+                    antiBan.alignCameraTo(nextStep.getPosition());
                 }
+                Execution.delayUntil(() -> !Players.getLocal().isMoving(), 50, 150);
+                if (!path.step()) break;
+                Execution.delay(gaussianDelay(600, 200, 300, 1200));
+                handleAntiBan(Players.getLocal().getPosition());
 
                 if (++refinementTickCounter >= PATH_REFINEMENT_INTERVAL_TICKS) {
                     path = buildPath(pathfinder, target);  // Refresh path

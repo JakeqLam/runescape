@@ -86,15 +86,14 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
         navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
         pathfinder = Pathfinder.create(this);
-
-        // Check if Lumbridge is the fishing spot
-        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
         System.out.println("[SimpleFisher] Started");
     }
 
     @Override
     public void onLoop() {
         if (!settingsConfirmed) return;
+
+        isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
 
         if (!InterfaceWindows.getInventory().isOpen()) {
             System.out.println("📂 Inventory tab is NOT open. Opening now...");
