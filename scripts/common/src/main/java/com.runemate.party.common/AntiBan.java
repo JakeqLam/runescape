@@ -4,15 +4,20 @@ import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
+import com.runemate.game.api.hybrid.entities.details.Interactable;
 import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
+import com.runemate.game.api.hybrid.local.hud.InteractablePoint;
+import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceWindows;
+import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.region.GameObjects;
 import com.runemate.game.api.hybrid.region.Npcs;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
 
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +44,7 @@ public class AntiBan {
         return value;
     }
 
+
     public void maybePerformAntiBan() {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastAntiBanTime >= nextAntiBanCooldown && Random.nextInt(100) < 3) {
@@ -48,6 +54,42 @@ public class AntiBan {
             nextAntiBanCooldown = getRandomCooldown();
         }
     }
+
+    public void alignCameraTo(Coordinate target) {
+        if (target == null || Players.getLocal() == null || Players.getLocal().getPosition() == null) {
+            return;
+        }
+
+        Coordinate playerPos = Players.getLocal().getPosition();
+
+        double dx = target.getX() - playerPos.getX();
+        double dy = target.getY() - playerPos.getY();
+
+        double angleRad = Math.atan2(dy, dx);
+        int targetYaw = (int) Math.toDegrees(angleRad);
+        if (targetYaw < 0) {
+            targetYaw += 360;
+        }
+
+        int currentYaw = Camera.getYaw();
+
+        int diff = targetYaw - currentYaw;
+        if (diff > 180) {
+            diff -= 360;
+        } else if (diff < -180) {
+            diff += 360;
+        }
+
+        int step = (int) Math.signum(diff) * Math.min(10, Math.abs(diff));
+
+        int newYaw = (currentYaw + step) % 360;
+        if (newYaw < 0) newYaw += 360;
+
+        int randomPitch = 60 + Random.nextInt(-10, 10);
+
+        Camera.turnTo(newYaw, randomPitch);
+    }
+
 
     public void rotateCamera() {
         System.out.println("🛡️ Performing anti-ban action...");
@@ -98,6 +140,49 @@ public class AntiBan {
 
         // Post-action delay (gaussian)
         Execution.delay((int)getGaussian(200, 1500, 850, 400));
+    }
+
+    private void maybeMoveMouseRandomlyOrToObject() {
+        GameObject obj = GameObjects.newQuery()
+                .filter(o -> o != null && o.isVisible())
+                .results()
+                .random();
+
+        if (obj != null) {
+            double result = getGaussian(0, 1, 0.2, 0.1); // mean = 0.2
+            boolean moveToTarget = result < 0.5; // ~70% true, 30% false
+
+            Point targetPoint = obj.getInteractionPoint();
+            if (targetPoint == null) return;
+
+            if (!moveToTarget) {
+                // Add ±25px random offset
+                int offsetX = Random.nextInt(-25, 26);
+                int offsetY = Random.nextInt(-25, 26);
+                targetPoint = new Point(targetPoint.x + offsetX, targetPoint.y + offsetY);
+                System.out.println("🖱️ Moving mouse near object");
+            } else {
+                System.out.println("🖱️ Moving mouse toward object");
+            }
+
+            Point current = Mouse.getPosition();
+            int steps = (int) getGaussian(5, 15, 10, 3);
+            for (int i = 0; i < steps; i++) {
+                double t = (i + 1) / (double) steps;
+                int x = (int) (current.x + t * (targetPoint.x - current.x));
+                int y = (int) (current.y + t * (targetPoint.y - current.y));
+
+                x += Random.nextInt(-2, 3); // small jitter
+                y += Random.nextInt(-2, 3);
+
+                Mouse.move(new InteractablePoint(x, y));
+                Execution.delay((int) getGaussian(50, 150, 100, 30));
+            }
+
+            if (moveToTarget) {
+                Mouse.move(obj); // final snap to interactable
+            }
+        }
     }
 
     public void performAntiBan() {
@@ -151,20 +236,8 @@ public class AntiBan {
                 }
                 break;
 
-            case 3: // Gradual Mouse Movement (Human-Like)
-                GameObject obj = GameObjects.newQuery()
-                        .filter(o -> o != null && o.isValid())
-                        .results()
-                        .random();
-
-                if (obj != null) {
-                    int moves = (int)getGaussian(5, 15, 10, 3);
-                    for (int i = 0; i < moves; i++) {
-                        Mouse.move(obj.getPosition());
-                        Execution.delay((int)getGaussian(50, 150, 100, 30));
-                    }
-                    System.out.println("🖱️ Moved mouse to object");
-                }
+            case 3: // Gradual mouse movement
+                maybeMoveMouseRandomlyOrToObject();
                 break;
 
             case 4: // Camera Zoom (with cooldown & double scroll chance)
@@ -181,17 +254,19 @@ public class AntiBan {
                 break;
 
             case 5: // Enhanced Tab Switching & Interface Interaction
-                boolean goToInventory = Random.nextBoolean();
-
-                if (goToInventory) {
-                    Keyboard.pressKey(KeyEvent.VK_F1);
-                    System.out.println("📂 Switched to Inventory tab.");
-                } else {
+                if (!InterfaceWindows.getInventory().isOpen())
                     Keyboard.pressKey(KeyEvent.VK_F2);
-                    System.out.println("📊 Switched to Skills tab.");
-                }
+                System.out.println("📊 Switched to Skills tab.");
+                Execution.delay((int)getGaussian(100, 300, 200, 70));
+                Keyboard.releaseKey(KeyEvent.VK_F2);
+                Execution.delay((int)getGaussian(2500, 5000, 3750, 1000));
 
-                Execution.delay((int)getGaussian(400, 1200, 800, 250));
+                Keyboard.pressKey(KeyEvent.VK_F3);
+                Execution.delay((int)getGaussian(100, 300, 200, 70));
+                Keyboard.releaseKey(KeyEvent.VK_F3);
+                System.out.println("📂 Switched to Inventory tab.");
+
+
                 break;
 
             case 6: // Idle (AFK)

@@ -1,71 +1,74 @@
 package com.runemate.party.common;
 
+import com.runemate.game.api.client.ClientUI;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
 import com.runemate.game.api.hybrid.location.navigation.Path;
-import com.runemate.game.api.hybrid.location.navigation.basic.BresenhamPath;
 import com.runemate.game.api.hybrid.region.Players;
 import com.runemate.game.api.hybrid.util.calculations.Random;
 import com.runemate.game.api.script.Execution;
 import com.runemate.pathfinder.Pathfinder;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
 public class GPTNavigation {
+
     private static final int MAX_ATTEMPTS = 5;
-    private static final long ANTI_BAN_COOLDOWN = 30_000; // 30 seconds in ms
-    private static final int MIN_DISTANCE_FOR_ANTIBAN = 10; // Minimum distance to trigger antiban
+    private static final long ANTI_BAN_COOLDOWN = 30_000;
+    private static final int MIN_DISTANCE_FOR_ANTIBAN = 10;
+    private static final int PATH_REFINEMENT_INTERVAL_TICKS = 5;
 
     private final AntiBan antiBan = new AntiBan();
+    private final Set<Coordinate> reachedCache = new HashSet<>();
+
     private long lastAntiBanTime = 0;
     private Coordinate lastPosition;
-    private long lastMovementTime = 0;
     private int stuckCounter = 0;
 
     public void walkToArea(Area targetArea, Pathfinder pathfinder) {
-        if (targetArea == null || pathfinder == null) {
-            System.out.println("❌ Invalid target area or pathfinder");
-            return;
-        }
+        if (targetArea == null || pathfinder == null) return;
+        if (targetArea.contains(Players.getLocal())) return;
 
-        if (targetArea.contains(Players.getLocal())) {
-            System.out.println("✅ Already in target area. No movement needed.");
-            return;
-        }
-
-        System.out.println("📍 [Navigation] Attempting to walk to area: " + targetArea.getCenter());
+        System.out.println("📍 Walking to: " + targetArea.getCenter());
 
         int attempts = 0;
         boolean reached = false;
+        Path path = null;
 
         while (attempts < MAX_ATTEMPTS && !reached) {
-            if (targetArea.contains(Players.getLocal())) {
-                System.out.println("✅ Entered target area.");
-                reached = true;
-                break;
-            }
-
             Coordinate target = getOptimalCoordinate(targetArea, pathfinder);
-            if (target == null) {
-                System.out.println("⚠️ Could not find valid coordinate in target area");
-                break;
-            }
+            if (target == null) break;
 
-            Path path = buildPath(pathfinder, target);
+            path = buildPath(pathfinder, target);
             if (path == null || !path.isValid()) {
-                System.out.println("⚠️ Path not found on attempt " + (attempts + 1));
                 attempts++;
-                Execution.delay(gaussianDelay(600, 200, 300, 1000));
+                Execution.delay(gaussianDelay(500, 200, 300, 1000));
                 continue;
             }
 
-            // Additional early check before stepping
-            if (targetArea.contains(Players.getLocal())) {
-                System.out.println("✅ Already in target area (pre-step check). No need to walk.");
-                reached = true;
-                break;
+            int refinementTickCounter = 0;
+
+            while (!targetArea.contains(Players.getLocal()) && path != null && path.isValid()) {
+                Coordinate nextStep = Objects.requireNonNull(path.getNext()).getPosition();
+                if (nextStep != null) {
+                    antiBan.alignCameraTo(nextStep);
+                    Execution.delayUntil(() -> !Players.getLocal().isMoving(), 50, 150);
+                    if (!path.step()) break;
+                    Execution.delay(gaussianDelay(600, 200, 300, 1200));
+                    handleAntiBan(Players.getLocal().getPosition());
+                }
+
+                if (++refinementTickCounter >= PATH_REFINEMENT_INTERVAL_TICKS) {
+                    path = buildPath(pathfinder, target);  // Refresh path
+                    refinementTickCounter = 0;
+                }
             }
 
-            System.out.println("✅ Found valid path to: " + target);
-            if (executePath(path, targetArea)) {
+            if (targetArea.contains(Players.getLocal())) {
+                reachedCache.add(target);
                 reached = true;
             } else {
                 attempts++;
@@ -74,98 +77,54 @@ public class GPTNavigation {
         }
 
         if (!reached) {
-            System.out.println("❌ Failed to reach area after " + MAX_ATTEMPTS + " attempts");
+            System.out.println("❌ Navigation failed. Attempting fallback.");
             fallBack(targetArea, pathfinder);
         }
     }
-
 
     private Coordinate getOptimalCoordinate(Area area, Pathfinder pathfinder) {
         Coordinate center = area.getCenter();
         if (center == null) return null;
 
-        // First try center point
-        if (isReachable(center, pathfinder)) {
-            return center;
+        for (Coordinate cached : reachedCache) {
+            if (area.contains(cached) && isReachable(cached, pathfinder)) return cached;
         }
 
-        // Then try random points
+        if (isReachable(center, pathfinder)) return center;
+
         for (int i = 0; i < 10; i++) {
-            Coordinate candidate = area.getRandomCoordinate();
-            if (candidate != null && isReachable(candidate, pathfinder)) {
-                return candidate;
-            }
+            Coordinate random = area.getRandomCoordinate();
+            if (random != null && isReachable(random, pathfinder)) return random;
         }
 
-        // Fallback to center if no valid coordinate was found
-        return center;
+        return null;
     }
 
     private boolean isReachable(Coordinate target, Pathfinder pathfinder) {
-        if (target == null) return false;
-
-        Path path = pathfinder.pathBuilder()
-                .destination(target)
-                .preferAccuracy()
-                .findPath();
-
+        Path path = buildPath(pathfinder, target);
         return path != null && path.isValid();
     }
 
     private Path buildPath(Pathfinder pathfinder, Coordinate target) {
         return pathfinder.pathBuilder()
                 .destination(target)
+                .preferAccuracy()
                 .enableHomeTeleport(true)
                 .enableTeleports(false)
                 .avoidWilderness(true)
-                .preferAccuracy()
                 .findPath();
-    }
-
-    private boolean executePath(Path path, Area targetArea) {
-        Coordinate startPos = Players.getLocal().getPosition();
-
-        if (path.step()) {
-            // Always wait for movement to complete (but with shorter timeout)
-            Execution.delayUntil(() -> !Players.getLocal().isMoving(), 200, 800);
-
-            // 80% chance to wait, 20% chance to continue immediately
-            if (Random.nextInt(1, 100) <= 80) {
-                // Randomize the wait time when we do wait
-                Execution.delay(gaussianDelay(1600, 300, 1200, 2000));
-
-                // Small chance (20%) of an extra "hesitation" delay
-                if (Random.nextInt(1, 100) <= 20) {
-                    Execution.delay(gaussianDelay(300, 100, 150, 600));
-                }
-            } else {
-                // Even when continuing immediately, add a tiny delay (humans can't react instantly)
-                Execution.delay(gaussianDelay(300, 100, 150, 600));
-            }
-
-            Coordinate currentPos = Players.getLocal().getPosition();
-            if (currentPos != null && currentPos.equals(startPos)) {
-                stuckCounter++;
-                return false;
-            }
-
-            handleAntiBan(currentPos);
-            return targetArea.contains(currentPos);
-        }
-        return false;
     }
 
     private void handleAntiBan(Coordinate currentPos) {
         long now = System.currentTimeMillis();
-        double distanceMoved = currentPos != null && lastPosition != null ?
-                currentPos.distanceTo(lastPosition) : 0;
+        double distance = currentPos != null && lastPosition != null
+                ? currentPos.distanceTo(lastPosition) : 0;
 
-        if (distanceMoved > MIN_DISTANCE_FOR_ANTIBAN &&
+        if (distance > MIN_DISTANCE_FOR_ANTIBAN &&
                 now - lastAntiBanTime > ANTI_BAN_COOLDOWN &&
                 Random.nextInt(0, 100) < 20) {
 
             antiBan.rotateCamera();
-            System.out.println("🌀 [AntiBan] Rotated camera (cooldown passed)");
             lastAntiBanTime = now;
         }
 
@@ -174,95 +133,37 @@ public class GPTNavigation {
 
     private void handleStuckSituation(Area targetArea, Pathfinder pathfinder) {
         stuckCounter++;
-        System.out.println("⚠️ Possible stuck situation detected (" + stuckCounter + "/3)");
+        System.out.println("⚠️ Stuck (" + stuckCounter + "/3)");
 
         if (stuckCounter >= 3) {
-            System.out.println("🚧 Performing stuck recovery actions");
+            System.out.println("🚧 Performing stuck recovery...");
             antiBan.rotateCamera();
-
-            // Randomize recovery delay more
-            int recoveryDelay = Random.nextBoolean() ?
-                    gaussianDelay(1500, 300, 800, 2500) :
-                    gaussianDelay(800, 200, 400, 1500);
-
-            Execution.delay(recoveryDelay);
-
-            // Sometimes try a different approach
-            if (Random.nextBoolean()) {
-                fallBack(targetArea, pathfinder);
-            } else {
-                // Just wait and try again
-                Execution.delay(gaussianDelay(1000, 200, 500, 1800));
-            }
+            Execution.delay(gaussianDelay(800, 200, 500, 1800));
             stuckCounter = 0;
         }
     }
 
     public void fallBack(Area targetArea, Pathfinder pathfinder) {
-        if (targetArea == null || pathfinder == null) return;
+        System.out.println("🔄 Fallback initiated.");
 
-        System.out.println("🔄 Attempting fallback navigation");
-
-        // Try simple Bresenham path first
-        Path path = BresenhamPath.buildTo(targetArea.getCenter().randomize(2, 2));
-        if (path != null && path.isValid() && !targetArea.contains(Players.getLocal())) {
-            if (path.step()) {
-                System.out.println("🚶 Stepping to fallback (Bresenham path)");
-                Execution.delay(gaussianDelay(1000, 200, 600, 1500));
-                return;
-            }
-        }
-
-        // Try partial path if direct path fails
         Coordinate start = Players.getLocal().getPosition();
-        if (start == null) {
-            System.out.println("❌ Invalid start position");
-            return;
-        }
-
         Coordinate target = targetArea.getCenter();
-        if (target == null) {
-            System.out.println("❌ Invalid target position");
-            return;
-        }
+        if (start == null || target == null) return;
 
-        // Calculate a point halfway to target
-        int newX = start.getX() + (target.getX() - start.getX()) / 2;
-        int newY = start.getY() + (target.getY() - start.getY()) / 2;
-        Coordinate halfwayPoint = new Coordinate(newX, newY, start.getPlane());
-        halfwayPoint = gaussianRandomized(halfwayPoint, 0, 1, 3);
+        int halfwayX = (start.getX() + target.getX()) / 2;
+        int halfwayY = (start.getY() + target.getY()) / 2;
+        Coordinate halfway = new Coordinate(halfwayX, halfwayY, start.getPlane());
 
-        path = pathfinder.pathBuilder()
-                .destination(halfwayPoint)
-                .enableHomeTeleport(false)
-                .avoidWilderness(true)
-                .preferAccuracy()
-                .findPath();
-
-        if (path != null && path.isValid() && !targetArea.contains(Players.getLocal())) {
-            if (path.step()) {
-                System.out.println("🚶 Stepping to fallback (halfway point): " + halfwayPoint);
-                Execution.delay(gaussianDelay(1000, 200, 600, 1500));
-            } else {
-                System.out.println("⚠️ Failed to step to fallback destination");
-            }
-        } else {
-            System.out.println("❌ Fallback path is invalid");
+        Path path = buildPath(pathfinder, halfway);
+        if (path != null && path.isValid() && path.step()) {
+            Execution.delay(gaussianDelay(1000, 300, 600, 1500));
+            Coordinate pos = Players.getLocal().getPosition();
+            if (pos != null) reachedCache.add(pos);
         }
     }
 
-    // Gaussian-based delay helper
     private int gaussianDelay(int mean, int deviation, int min, int max) {
         int delay = (int) Random.nextGaussian(min, max, mean, deviation);
         return Math.max(min, Math.min(max, delay));
-    }
-
-    // Gaussian-based coordinate randomization helper
-    private Coordinate gaussianRandomized(Coordinate coord, int mean, int deviation, int bounds) {
-        int offsetX = (int) Random.nextGaussian(mean, deviation);
-        int offsetY = (int) Random.nextGaussian(mean, deviation);
-        offsetX = Math.max(-bounds, Math.min(bounds, offsetX));
-        offsetY = Math.max(-bounds, Math.min(bounds, offsetY));
-        return new Coordinate(coord.getX() + offsetX, coord.getY() + offsetY, coord.getPlane());
     }
 }

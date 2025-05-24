@@ -4,9 +4,11 @@ import com.runemate.game.api.hybrid.RuneScape;
 import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
+import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
+import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceWindows;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
@@ -28,6 +30,7 @@ import com.runemate.ui.setting.annotation.open.SettingsProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.awt.event.KeyEvent;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -62,6 +65,8 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     private boolean settingsConfirmed;
 
     boolean isFishingInLumbridge;
+    private long earlyDepositCooldown = 0; // in milliseconds
+    private long lastEarlyDepositCheck = 0; // in milliseconds
 
     private long lastEarlyBankCheck = 0;
     private long earlyBankCooldown = (long)getGaussian(3, 5, 4, 0.7);
@@ -90,6 +95,13 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     @Override
     public void onLoop() {
         if (!settingsConfirmed) return;
+
+        if (!InterfaceWindows.getInventory().isOpen()) {
+            System.out.println("📂 Inventory tab is NOT open. Opening now...");
+            Keyboard.pressKey(KeyEvent.VK_F3); // F3 is usually the Inventory hotkey
+            Execution.delay(300, 600);
+        }
+
         Player player = Players.getLocal();
         if (player == null) return;
 
@@ -98,19 +110,22 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
 
         // Bank if inventory full
         int inventoryCount = Inventory.getItems().size();
-        // Convert time values to seconds
-        long currentTimeSeconds = System.currentTimeMillis() / 1000;
-        boolean shouldCheckEarlyBank = (currentTimeSeconds - lastEarlyBankCheck) > earlyBankCooldown;
-        boolean earlyBankChance = shouldCheckEarlyBank && inventoryCount >= 24 && Random.nextInt(0, 100) < 10;
+        long currentTime = System.currentTimeMillis();
 
-        if (Inventory.isFull() || earlyBankChance) {
-            System.out.println("Banking (reason: " +
-                    (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
+        boolean shouldCheckEarlyDeposit = (currentTime - lastEarlyDepositCheck) > earlyDepositCooldown;
+        boolean earlyDepositChance = false;
 
-            if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(24, 36, 30, 0.7);  // Increase the standard deviation for better spread
-                lastEarlyBankCheck = currentTimeSeconds;
-            }
+        if (shouldCheckEarlyDeposit) {
+            earlyDepositChance = inventoryCount >= 24 && Random.nextInt(100) < 5;
+
+            // Always reset cooldown to avoid rapid re-checks
+            earlyBankCooldown = (long) getGaussian(2500, 4000, 3200, 500);
+            lastEarlyDepositCheck = currentTime;
+        }
+
+        if (Inventory.isFull() || earlyDepositChance) {
+            System.out.println("Depositing (reason: " +
+                    (Inventory.isFull() ? "inventory full" : "early deposit at " + inventoryCount + " items") + ")");
 
             walkToAndDeposit();
             return;
@@ -232,5 +247,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
     @Override public void onSettingChanged(SettingChangedEvent e) {
         isFishingInLumbridge = settings.getSpot().equals(FishingSpot.LUMBRIDGE_SWAMP);
     }
-    @Override public void onSettingsConfirmed() { settingsConfirmed = true; }
+    @Override public void onSettingsConfirmed() {
+        settingsConfirmed = true;
+    }
 }

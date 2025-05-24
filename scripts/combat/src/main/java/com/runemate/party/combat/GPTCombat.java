@@ -5,10 +5,12 @@ import com.runemate.game.api.hybrid.entities.GameObject;
 import com.runemate.game.api.hybrid.entities.GroundItem;
 import com.runemate.game.api.hybrid.entities.Npc;
 import com.runemate.game.api.hybrid.entities.Player;
+import com.runemate.game.api.hybrid.input.Keyboard;
 import com.runemate.game.api.hybrid.input.Mouse;
 import com.runemate.game.api.hybrid.local.Camera;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Bank;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Health;
+import com.runemate.game.api.hybrid.local.hud.interfaces.InterfaceWindows;
 import com.runemate.game.api.hybrid.local.hud.interfaces.Inventory;
 import com.runemate.game.api.hybrid.location.Area;
 import com.runemate.game.api.hybrid.location.Coordinate;
@@ -28,6 +30,7 @@ import com.runemate.party.common.GPTNavigation;
 import com.runemate.pathfinder.Pathfinder;
 import com.runemate.ui.setting.annotation.open.SettingsProvider;
 
+import java.awt.event.KeyEvent;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -183,11 +186,25 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
         navigation = new GPTNavigation();
         getEventDispatcher().addListener(this);
         System.out.println("[SimpleFighter] Started.");
+
+        if (InterfaceWindows.getInventory().isOpen()) {
+            System.out.println("📂 Inventory tab is open.");
+        } else {
+            System.out.println("📂 Inventory tab is NOT open. Opening now...");
+            Keyboard.pressKey(KeyEvent.VK_F2); // F2 is usually the Inventory hotkey
+            Execution.delay(300, 600);
+        }
     }
 
     @Override
     public void onLoop() {
         if (!settingsConfirmed || settings == null) return;
+
+        if (!InterfaceWindows.getInventory().isOpen()) {
+            System.out.println("📂 Inventory tab is NOT open. Opening now...");
+            Keyboard.pressKey(KeyEvent.VK_F3); // F3 is usually the Inventory hotkey
+            Execution.delay(300, 600);
+        }
 
         Player player = Players.getLocal();
         if (player == null) return;
@@ -235,19 +252,22 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
 
         // Bank if inventory full
         int inventoryCount = Inventory.getItems().size();
-        // Convert time values to seconds
-        long currentTimeSeconds = System.currentTimeMillis() / 1000;
-        boolean shouldCheckEarlyBank = (currentTimeSeconds - lastEarlyBankCheck) > earlyBankCooldown;
-        boolean earlyBankChance = shouldCheckEarlyBank && inventoryCount >= 24 && Random.nextInt(0, 100) < 10;
+        long currentTime = System.currentTimeMillis();
+
+        boolean shouldCheckEarlyBank = (currentTime - lastEarlyBankCheck) > earlyBankCooldown;
+        boolean earlyBankChance = false;
+
+        if (shouldCheckEarlyBank) {
+            earlyBankChance = inventoryCount >= 24 && Random.nextInt(100) < 5;
+
+            // Always reset cooldown to prevent repeated triggers
+            earlyBankCooldown = (long) getGaussian(2500, 4000, 3200, 500);
+            lastEarlyBankCheck = currentTime;
+        }
 
         if (Inventory.isFull() || earlyBankChance) {
             System.out.println("Banking (reason: " +
                     (Inventory.isFull() ? "inventory full" : "early bank at " + inventoryCount + " items") + ")");
-
-            if (earlyBankChance) {
-                earlyBankCooldown = (long)getGaussian(8, 10, 9, 0.7); // Cooldown in seconds
-                lastEarlyBankCheck = currentTimeSeconds;
-            }
 
             walkToBankAndWithdrawFood();
             return;
