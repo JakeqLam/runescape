@@ -9,6 +9,11 @@ import com.runemate.ui.setting.open.*;
 @SettingsGroup(group = "SimpleMiner")
 public interface MinerSettings extends Settings {
 
+    @Setting(key = "mineOtherAreaIfContested", title = "Mine a different area if another player is mining.", order = 0)
+    default boolean mineOtherAreaIfContested() {
+        return false;
+    }
+
     @Setting(key = "preferredBank", title = "Select a specific bank location or leave blank for nearest.", order = 0)
     default BankLocation getPreferredBank() {
         return BankLocation.NEAREST;

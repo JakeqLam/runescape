@@ -97,7 +97,7 @@ public class SimpleFisher extends LoopingBot implements SettingsListener {
 
         if (!InterfaceWindows.getInventory().isOpen()) {
             System.out.println("📂 Inventory tab is NOT open. Opening now...");
-            Keyboard.pressKey(KeyEvent.VK_F3); // F3 is usually the Inventory hotkey
+            Keyboard.pressKey(KeyEvent.VK_ESCAPE); // VK_ESCAPE is usually the Inventory hotkey
             Execution.delay(300, 600);
         }
 

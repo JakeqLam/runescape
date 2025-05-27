@@ -151,7 +151,7 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
 
         if (!InterfaceWindows.getInventory().isOpen()) {
             System.out.println("📂 Inventory tab is NOT open. Opening now...");
-            Keyboard.pressKey(KeyEvent.VK_F3); // F3 is usually the Inventory hotkey
+            Keyboard.pressKey(KeyEvent.VK_ESCAPE); // ESC is usually the Inventory hotkey
             Execution.delay(300, 600);
         }
 
@@ -189,28 +189,38 @@ public class SimpleMiner extends LoopingBot implements SettingsListener {
             return;
         }
 
-        maybeClearContestedRocks();
+        GameObject rock;
 
-        String oreName = settings.getOreType().toString();
-        GameObject rock = GameObjects.newQuery()
-                .names(oreName)
-                .filter(r -> !contestedRocks.contains(r.getPosition()))
-                .results()
-                .nearest();
+        if (settings.mineOtherAreaIfContested()) {
+            maybeClearContestedRocks();
 
-        if (rock != null) {
-            boolean someoneElseIsMining = Players.newQuery()
-                    .filter(p -> !p.equals(Players.getLocal()))
-                    .filter(p -> p.getTarget() != null && p.getTarget().equals(rock))
+            String oreName = settings.getOreType().toString();
+            rock = GameObjects.newQuery()
+                    .names(oreName)
+                    .filter(r -> !contestedRocks.contains(r.getPosition()))
                     .results()
-                    .size() > 0;
+                    .nearest();
 
-            if (someoneElseIsMining) {
-                System.out.println("⛏️ Rock is being mined by another player, skipping...");
-                contestedRocks.add(rock.getPosition());
-                Execution.delay((int)getGaussian(500, 1000, 750, 150));
-                return;
+            if (rock != null) {
+                boolean someoneElseIsMining = Players.newQuery()
+                        .filter(p -> !p.equals(Players.getLocal()))
+                        .filter(p -> p.getTarget() != null && p.getTarget().equals(rock))
+                        .results()
+                        .size() > 0;
+
+                if (someoneElseIsMining) {
+                    System.out.println("⛏️ Rock is being mined by another player, skipping...");
+                    contestedRocks.add(rock.getPosition());
+                    Execution.delay((int)getGaussian(500, 1000, 750, 150));
+                    return;
+                }
             }
+        } else {
+            // Fallback for when contest check is off
+            rock = GameObjects.newQuery()
+                    .names(settings.getOreType().toString())
+                    .results()
+                    .nearest();
         }
 
         if (!movingToBank && !settings.getLocation().getArea().contains(Players.getLocal())) {

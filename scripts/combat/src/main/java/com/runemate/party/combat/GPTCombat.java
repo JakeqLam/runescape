@@ -191,7 +191,7 @@ public class GPTCombat extends LoopingBot implements SettingsListener {
             System.out.println("📂 Inventory tab is open.");
         } else {
             System.out.println("📂 Inventory tab is NOT open. Opening now...");
-            Keyboard.pressKey(KeyEvent.VK_F2); // F2 is usually the Inventory hotkey
+            Keyboard.pressKey(KeyEvent.VK_ESCAPE); // VK_ESCAPE is usually the Inventory hotkey
             Execution.delay(300, 600);
         }
     }
