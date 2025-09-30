@@ -1,0 +1,46 @@
+{$I WaspLib/osrs.simba}
+
+var
+  Walker: TRSWalker;
+  GETile: TPoint := [8572, 36470];
+
+procedure Setup();
+begin
+
+  // Load the map chunk(s) you need. Add more ERSChunk.* if you’ll cross regions.
+  Map.Setup([ERSChunk.VARROCK, ERSChunk.EDGEVILLE, ERSChunk.LUMBRIDGE]);  // loads map + wires Map <-> Walker
+  Walker.Setup(
+    @Map.Position,        // TWalkerPositionFunction
+    @Map.Height,          // TWalkerHeightFunction
+    @Map.Loader.GetLocal, // TWalkerGetLocalFunction
+    @Map.Loader.Graph,    // PWebGraph  (pointer form as in docs)
+    Map.Loader.Map        // TImage
+  );
+
+  // Sanity: print current coord in WaspLib's grid
+  Writeln('Pos = ' + ToStr(Map.Position()));
+  // Optional: login helper
+  // Login.AddPlayer('username', 'password', '');
+  // if not RSClient.IsLoggedIn then Login.LoginPlayer;
+end;
+
+function AtTile(tile: TPoint; distance: Int32 = 15): Boolean;
+begin
+  // Uses Walker’s notion of “in range” on the loaded map (pixels, radial).
+  Result := Walker.InRange(tile, distance);
+end;
+
+procedure WalkTo(tile: TPoint; distance: Int32 = 12; randomness: Double = 0.20);
+begin
+  if not AtTile(tile, distance) then
+    // Web-walks on the loaded map; minDist returns early when close.
+    // randomness adds slight variation to click targets.
+    Walker.WebWalk(tile, distance, randomness);
+end;
+
+begin
+  Setup();
+  WriteLn('Current position: ' + ToStr(Map.Position()));
+  WalkTo(GETile, 12, 0.20);
+  WriteLn('Arrived (or close enough).');
+end.
