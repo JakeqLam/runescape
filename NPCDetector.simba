@@ -1,0 +1,28 @@
+{$I WaspLib/osrs.simba}
+
+var
+  Walker: TRSWalker;
+  Npc: TRSEntity;
+
+procedure Setup();
+begin
+    // Load the map chunk(s) you need. Add more ERSChunk.* if you’ll cross regions.
+    Map.Setup([ERSChunk.VARROCK, ERSChunk.EDGEVILLE, ERSChunk.LUMBRIDGE]);  // loads map + wires Map <-> Walker
+    Walker.Setup(
+      @Map.Position,        // TWalkerPositionFunction
+      @Map.Height,          // TWalkerHeightFunction
+      @Map.Loader.GetLocal, // TWalkerGetLocalFunction
+      @Map.Loader.Graph,    // PWebGraph  (pointer form as in docs)
+      Map.Loader.Map        // TImage
+    );
+    //Login Handler
+    Login.AddPlayer('username', 'password', '');
+    if not RSClient.IsLoggedIn then
+      Login.LoginPlayer;
+
+end;
+
+begin
+  Setup();
+  Writeln("")
+end;

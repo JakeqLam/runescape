@@ -11,7 +11,7 @@ procedure Setup();
 begin
 
   // Load the map chunk(s) you need. Add more ERSChunk.* if you’ll cross regions.
-  Map.Setup([ERSChunk.VARROCK, ERSChunk.EDGEVILLE, ERSChunk.LUMBRIDGE, ERSChunk.DRAYNOR_VILLAGE);  // loads map + wires Map <-> Walker
+  Map.Setup([ERSChunk.VARROCK, ERSChunk.EDGEVILLE, ERSChunk.LUMBRIDGE]);  // loads map + wires Map <-> Walker
   Walker.Setup(
     @Map.Position,        // TWalkerPositionFunction
     @Map.Height,          // TWalkerHeightFunction
@@ -41,7 +41,6 @@ end;
 begin
   Setup();
   WriteLn('Current position: ' + ToStr(Map.Position()));
-  while True do
-    WalkTo(GETile, 12, 0.20);
+  WalkTo(GETile, 12, 0.20);
   WriteLn('Arrived (or close enough).');
 end.
