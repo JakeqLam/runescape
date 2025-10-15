@@ -83,7 +83,7 @@ begin
   Sleep(200,400);
   if MainScreen.IsUpText('Crawl-through Cave', False, 0.75, 100) then
     begin
-      WriteLn('Found cave, Travelling to next location 🗻');
+      WriteLn("[" + timeElapsed +"]: "+ 'Found cave, Travelling to next location 🗻');
       cave.WalkInteract(['Crawl-through']);
     end;
   Sleep(200,400);
@@ -212,8 +212,8 @@ begin
 
   //breaks
   //Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  //Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
-  //Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
   Antiban.DoAntiban();
 end;
 
@@ -223,7 +223,7 @@ end;
 
 procedure printProgReport();
 begin
-
+  Writeln("");
   Writeln("+ 💎 Gemstone Crab Fighter 🦀 --------+");
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
@@ -258,6 +258,7 @@ begin
   while True do
   begin
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+    player := Map.Position(); //Player Position
     checkCombatState();
     checkCrabState();
     Antiban.DismissRandom();
