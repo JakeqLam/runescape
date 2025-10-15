@@ -1,0 +1,70 @@
+{$I WaspLib/osrs.simba}
+
+var
+  // ===== Settings =====
+  safespot  : TPoint := [4780,39162];
+  food      : String := "Lobster";
+
+
+  //___________________
+  player  : TPoint;
+
+  mob     : TRSObject;
+  pt      : TPoint;
+  mmPts   : TPointArray;
+  mapPts  : TPointArray;
+  region  : TBox;
+  nearestMossGiant : TPoint;
+  path    : TGraphNodeArray;
+
+procedure setup();
+begin
+  Map.Setup([Chunk(Box(34,44,35,43), 0)]); //Isle of Souls
+  player := Map.Position(); //Player
+
+end;
+
+procedure attackNearestMossGiant();
+var
+  i: Integer;
+
+begin
+  Sleep(200,400);
+  //get moss giant position from minimap
+  with Minimap.Bounds do
+    region := Box(X1+30, Y1+30, X2-30, Y2-30);
+  mmPts := Minimap.GetDots(ERSMinimapDot.NPC);
+  SetLength(mapPts, Length(mmPts));
+  for i := 0 to High(mmPts) do
+    mapPts[i] := Map.Walker.MM2Map(player, mmPts[i], Minimap.CompassRadians); // returns global map coords
+  nearestMossGiant := Map.Walker.GetClosestPoint(player, mapPts, path);                 // returns closest by the loaded web-graph :contentReference[oaicite:3]{index=3}
+
+  WriteLn('Attacking Moss giant at: ' + toStr(nearestMossGiant));
+  mob := mob.Create(@Map.Walker,[1,1,7],[nearestMossGiant],['Moss', 'giants']);     //get the first moss giant
+  mob.WalkInteract(['Attack']);
+  Sleep(200,400);
+
+end;
+
+procedure checkHp();
+var
+  maxHp : Integer;
+  currentHP: Integer;
+begin
+    maxHp := Minimap.GetPercent(ERSMinimapOrb.HITPOINTS);
+    writeLn('char hp: ' + toStr(maxHp));
+end;
+
+begin
+  setup();
+  //main loop
+  while true do
+  begin
+    checkHp();
+    attackNearestMossGiant();
+  end;
+
+  writeLn('Current position: ' + toStr(player));
+
+end.
+
