@@ -58,6 +58,7 @@ begin
   profile.Username      := LOGIN_PASS;
   profile.Password      := PPIN;
   //profile.World         := world;      // 0 = let client pick; or set a world number
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -212,8 +213,8 @@ begin
 
   //breaks
   //Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
-  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.AddBreak(ONE_MINUTE*30, ONE_MINUTE*60, 0.2, 0.0);  //Moderate break
+  //Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
   Antiban.DoAntiban();
 end;
 
@@ -250,7 +251,6 @@ begin
   printProgReport();
   Map.Setup([Chunk(Box(19,49,21,47), 0)]); //Gemstone crab locations in ttlai forest
   player := Map.Position(); //Player
-  RSMouseZoom.Scroll(-18);
   setCrabLocation();
   setupAntiBan();
 

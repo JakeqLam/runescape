@@ -1,5 +1,7 @@
 {$I WaspLib/osrs.simba}
 {$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
 (******************************************************************************
 * Project: Cyclops Fighter
 * Author : Jake Lam
@@ -19,8 +21,8 @@ var
   //Mob Name
   mobName     := "Cyclops";
   food        := "Lobster";
-  lootList    := ["Willow Logs","Gold", "Defender"];
-  hpThreshold := 45;
+  lootList    := ["Coins","Lobster","Rune","Dragon defender"];
+  hpThreshold := 55;
 
   //Location Values
   //MAP_CHUNK  :=  [Chunk(Box(44,55,45,55), 0)]
@@ -34,6 +36,7 @@ var
   mob,loot      : TRSObject;
   player, pt    : TPoint;
   mmMobPts, msMobPts : TPointArray;
+  mmItemPts, msItemPts : TPointArray;
   region        : TBox;
   path          : TGraphNodeArray;
 
@@ -45,7 +48,6 @@ var
   nearestTarget: TPoint;
 
   isAttacking : boolean := false;
-  isMobAlive : boolean := true;
   MAX_ATTEMPTS: Integer := 10;
 
   //Reporting values
@@ -113,13 +115,28 @@ end;
 // Section: Player Interaction
 // ─────────────────────────────────────────────────────────────
 
+//Heal if hp is low
+procedure healHP();
+begin
+    if not Consumables.Has(ERSConsumable.FOOD) then
+    begin
+      WriteLn("["+timeElapsed+"]: "+'No food found (e.g., Lobster).');
+    end;
+
+    hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
+    if hp <= hpThreshold then
+    begin
+      writeln("["+timeElapsed+"]: "+'HP is low. Eating '+food+" You have: "+toStr(Consumer.Count(ERSConsumable.FOOD)) + " left");
+      Consumer.Consume(ERSConsumable.FOOD);
+      writeln("[" + timeElapsed +"]: " + 'Current HP: ' + toStr(hp));
+    end;
+end;
+
 //Get the closest mob and set the target
 procedure setNearestTarget();
 var
   i: Integer;
 begin
-
-  writeLn('[DEBUG]:Current position: ' + toStr(player));
 
   with Minimap.Bounds do
     region := Box(X1+30, Y1+30, X2-30, Y2-30);
@@ -127,7 +144,7 @@ begin
   SetLength(msMobPts, Length(mmMobPts));
   for i := 0 to High(mmMobPts) do
     msMobPts[i] := Map.Walker.MM2Map(player, mmMobPts[i], Minimap.CompassRadians); // returns global map coords
-  nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);                 // returns closest by the loaded web-graph :contentReference[oaicite:3]{index=3}
+  nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);
   mob := mob.Create(@Map.Walker,[1,1,7],[nearestTarget],[mobName]);
 
   mob.Hover();
@@ -147,42 +164,38 @@ end;
 //loot items from players item list
 procedure lootItems();
 var
-  mmItemPts, msItemPts : TPointArray;
   i : Integer;
-  nearestLoot : TPoint;
-
 begin
   with Minimap.Bounds do
     region := Box(X1+30, Y1+30, X2-30, Y2-30);
   mmItemPts := Minimap.GetDots(ERSMinimapDot.ITEM);
   SetLength(msItemPts, Length(mmItemPts));
+  Sleep(2000);
+  writeln("["+timeElapsed+"]: "+"Scanning the ground for Loot");
+
   for i := 0 to High(mmItemPts) do
-    msItemPts[i] := Map.Walker.MM2Map(player, msItemPts[i], Minimap.CompassRadians); // returns global map coords
-
-  nearestLoot := Map.Walker.GetClosestPoint(player, msMobPts, path);
-
-  loot := loot.Create(@Map.Walker,[1,1,7],[nearestLoot],[lootList[0]]);
-  writeLn('Looting item: ' + toStr(lootList[0]));
-end;
-
-//Heal if hp is low
-procedure healHP();
-var
-  assets, jsonPath: String;
-
-begin
-    if not Consumables.Has(ERSConsumable.FOOD) then
+  begin
+    msItemPts[i] := Map.Walker.MM2Map(player, mmItemPts[i], 0);
+    loot := loot.Create(@Map.Walker,[1,1,7],[msItemPts[0]], ['Take','Coins']);
+    Sleep(3000); //wait for minimap to stabilize
+    loot.Hover();
+    Mouse.Click(EMouseButton.RIGHT);
+    Sleep(500,1000);
+    if ChooseOption.IsOpen() then
     begin
-      WriteLn('No food found (e.g., Lobster).');
-    end;
+      ChooseOption.Select(['Take Coins']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Lobster']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Rune']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Dragon defender']);
 
-    hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
-    if hp <= hpThreshold then
-    begin
-      writeln("["+timeElapsed+"]: "+'HP is low. Eating '+food+" You have: "+toStr(Consumer.Count(ERSConsumable.FOOD)) + " left");
-      Consumer.Consume(ERSConsumable.FOOD);
-      writeln("[" + timeElapsed +"]: " + 'Current HP: ' + toStr(hp));
     end;
+    Sleep(4000);
+    healHP();
+    ChooseOption.Close();
+  end;
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -224,10 +237,8 @@ begin
   Map.Setup([Chunk(Box(44,55,45,55), 0)]);//Warriors Guild
 
   resetPlayerPos(); //Player
-  RSMouseZoom.Scroll(-2);
   setupAntiBan();
 
-  //setNearestTarget();
 
   //Begin Loop
   while True do
@@ -247,13 +258,11 @@ begin
     checkCombatState();
     resetPlayerPos(); //Player Position
     //lootItems();
-    Sleep(1000,5000);
 
     //if you are out of combat and the Mob is dead. Move to the next location
     if not isAttacking then
     begin
       printProgReport();
-
       resetPlayerPos(); //Player Position
       Sleep(300);
       setNearestTarget();    //recalibrate
