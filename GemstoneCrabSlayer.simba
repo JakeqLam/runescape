@@ -275,7 +275,7 @@ begin
     begin
       printProgReport();
       goToNextCrab();
-      Sleep(6000);
+      Sleep(5000);
       player := Map.Position(); //Player Position
       setCrabLocation();    //recalibrate
       Sleep(1000,2000);

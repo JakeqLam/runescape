@@ -3,7 +3,7 @@
 {$DEFINE WL_DEBUG_MOUSE}
 
 (******************************************************************************
-* Project: Cyclops Fighter
+* Project: Moss giant Fighter
 * Author : Jake Lam
 * Notes  :
 ******************************************************************************)
@@ -14,18 +14,15 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'GoogelFoo';     //Username/Email
-  LOGIN_PASS  = '@Brad8928828';  //Password
-  PPIN        = '';              //Bank pin
+  LOGIN_NAME  := 'GoogelFoo';     //Username/Email
+  LOGIN_PASS  := '@Brad8928828';  //Password
+  PPIN        := '';              //Bank pin
 
   //Mob Name
-  mobName     := "Cyclops";
+  mobName     := "Moss giant";
   food        := "Lobster";
   lootList    := ["Coins","Lobster","Rune","Dragon defender"];
   hpThreshold := 45;
-
-  //Location Values
-  //MAP_CHUNK  :=  [Chunk(Box(44,55,45,55), 0)]
 
 // ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
@@ -41,7 +38,8 @@ var
   path          : TGraphNodeArray;
 
   //Interactable objects
-  WGBank : TPoint := [7276, 36258];
+  ISBank  : TPoint := [4752,38994];
+  MGSpawn : TPoint := [4804,39150];
 
   //State machine with default values
   Consumer : TRSConsumables;
@@ -74,7 +72,7 @@ begin
 end;
 
 // ─────────────────────────────────────────────────────────────
-// Section: State Helpers
+// Section: Player State Utils
 // ─────────────────────────────────────────────────────────────
 procedure resetPlayerPos();
 begin
@@ -114,6 +112,12 @@ end;
 // ─────────────────────────────────────────────────────────────
 // Section: Player Interaction
 // ─────────────────────────────────────────────────────────────
+
+//Get food from bank and unload loot
+procedure bankForFood();
+begin
+  writeln(("["+timeElapsed+"]: " + "Navigating to Bank"));
+end;
 
 //Heal if hp is low
 procedure healHP();
@@ -165,11 +169,10 @@ end;
 procedure lootItems();
 var
   i : Integer;
-
-
+  pt: TPoint;
 begin
-  with Minimap.Bounds do
-    region := Box(X1+30, Y1+30, X2-30, Y2-30);
+  //with Minimap.Bounds do
+  //  region := Box(X1+30, Y1+30, X2-30, Y2-30);
   mmItemPts := Minimap.GetDots(ERSMinimapDot.ITEM);
   SetLength(msItemPts, Length(mmItemPts));
   Sleep(2000);
@@ -177,22 +180,45 @@ begin
   for i := 0 to High(mmItemPts) do
   begin
     msItemPts[i] := Map.Walker.MM2Map(player, mmItemPts[i], 0);
-    loot := loot.Create(@Map.Walker,[1,1,7],[msItemPts[0]], ['Take','Coins']);
-    loot.Hover();
-    Mouse.Click(EMouseButton.RIGHT);
+
+    //loot := loot.Create(@Map.Walker,[1,1,3],[msItemPts[i]], ['Take']);
+    //loot.Hover(['Take'],3);
+    //Mouse.Click(EMouseButton.RIGHT);
+
+    Sleep(500,1000);
     if ChooseOption.IsOpen() then
     begin
       ChooseOption.Select(['Take Coins']);
       Sleep(50,100);
+      ChooseOption.Select(['Take Ranarr seed']);
+      Sleep(50,100);
       ChooseOption.Select(['Take Lobster']);
       Sleep(50,100);
       ChooseOption.Select(['Take Rune']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Dragon defender']);
 
     end;
-    Sleep(4000);
+    Sleep(1000);
     healHP();
     ChooseOption.Close();
   end;
+end;
+
+procedure lootFinder();
+var
+  B: TBox;
+  Finder: TColorFinder;
+  ATPA: T2DPointArray;
+begin
+  writeln("finding bones");
+  ATPA := ATPA.SortFrom(Mainscreen.Bounds.Center);
+
+  Finder.Colors += ColorTolerance($D7D7DC,5.8,EColorSpace.HSL,[1,1,1]);
+  //Finder.find(ATPA, );
+
+  // Group nearby pixels into clusters
+  //Finder.Transformer.Distance := CLUSTER_DISTANCE;
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -202,7 +228,7 @@ end;
 procedure printProgReport();
 begin
   Writeln("");
-  Writeln("+ Warrior Guild Fighter ⚔️ -----------+");
+  Writeln("+ Moss Giant Fighter ⚔️ -----------+");
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
@@ -231,13 +257,10 @@ begin
 
   Consumer.Setup();
   Consumer.find(ERSConsumable.FOOD);
-  Map.Setup([Chunk(Box(34,44,35,43), 0)]); //Isle of Souls
+  Map.Setup([Chunk(Box(44,55,45,55), 0)]);//Warriors Guild
 
   resetPlayerPos(); //Player
-  //RSMouseZoom.Scroll(-5);
   setupAntiBan();
-
-  //setNearestTarget();
 
   //Begin Loop
   while True do
@@ -256,8 +279,9 @@ begin
     healHP();
     checkCombatState();
     resetPlayerPos(); //Player Position
-    lootItems();
-    Sleep(2000);
+    lootFinder();
+    //lootItems();
+
     //if you are out of combat and the Mob is dead. Move to the next location
     if not isAttacking then
     begin
