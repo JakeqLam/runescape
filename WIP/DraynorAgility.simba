@@ -108,21 +108,24 @@ end;
 
 procedure performAgility();
 begin
+  Mouse.Move(TTightRope1);
+  Mouse.Click(TTightRope1, EMouseButton.LEFT);
+
   writeln("Climbing Rough Wall");
-  RoughWall.WalkInteract(['Climb','Rough','wall']);
+  //RoughWall.WalkInteract(['Climb','Rough','wall']);
 
   Sleep(6000);
 
   writeln("Crossing Tight Rope 1");
-  TightRope1.WalkInteract(['Cross', 'Tightrope']);
+  //TightRope1.WalkInteract(['Cross', 'Tightrope']);
   Sleep(6000);
 
   writeln("Crossing Tight Rope 2");
-  TightRope2.WalkInteract(['Cross', 'Tightrope']);
+  //TightRope2.WalkInteract(['Cross', 'Tightrope']);
   Sleep(200,1500);
 
   writeln("Balancing on Narrow wall");
-  NarrowWall.WalkInteract(['Balance', 'Narrow', 'wall']);
+  //NarrowWall.WalkInteract(['Balance', 'Narrow', 'wall']);
   Sleep(200,1500);
 
 
@@ -163,8 +166,7 @@ begin
   timer.Start();
   printProgReport();
 
-  //Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);//draynor village
-  Map.Setup([Chunk(Box(48,51,48,50), 3)]); //rooftop
+  Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);//draynor village
 
   writeln(Map.Position());
   setUpObstacles();

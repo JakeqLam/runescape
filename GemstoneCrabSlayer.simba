@@ -83,10 +83,14 @@ begin
   cave.WalkInteract(['Crawl-through']);
   Sleep(200,400);
   if MainScreen.IsUpText('Crawl-through Cave', False, 0.75, 100) then
-    begin
-      WriteLn("[" + timeElapsed +"]: "+ 'Found cave, Travelling to next location 🗻');
-      cave.WalkInteract(['Crawl-through']);
-    end;
+  begin
+    WriteLn("[" + timeElapsed +"]: "+ 'Found cave, Travelling to next location 🗻');
+    cave.WalkInteract(['Crawl-through']);
+  end
+  else
+  begin
+    cave.Click();
+  end;
   Sleep(200,400);
 end;
 
@@ -208,12 +212,12 @@ begin
   Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
   Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
   //Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
-  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+  //Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
   //Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
 
   //breaks
   //Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  Antiban.AddBreak(ONE_MINUTE*30, ONE_MINUTE*60, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_MINUTE*60, 0.2, 0.0);  //Moderate break
   //Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
   Antiban.DoAntiban();
 end;
