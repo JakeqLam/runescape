@@ -32,7 +32,7 @@ var
   itemOneQuantity  := 1;
   itemOneMin       := 1;
 
-  itemTwo          := "Super compost";
+  itemTwo          := "Supercompost";
   itemTwoQuantity  := 27;
   itemTwoMin       := 1;
 
@@ -164,7 +164,7 @@ begin
 
   if Make.IsOpen() then
     Make.Select(makeAllInterface,QUANTITY_ALL);
-  Sleep(2000);
+  Sleep(4000);
   if not XPBar.EarnedXP() then
   begin
     if (Inventory.Combine(invOne, invTwo)) then
@@ -196,6 +196,7 @@ begin
     Bank.Withdraw(itemTwo);
     //Bank.CloseSearch();
     printProgReport();
+    Sleep(2000);
   end;
   Bank.Close();
 end;
