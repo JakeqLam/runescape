@@ -14,8 +14,8 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'GoogelFoo';     //Username/Email
-  LOGIN_PASS  = '@Brad8928828';  //Password
+  LOGIN_NAME  = '';     //Username/Email
+  LOGIN_PASS  = '';  //Password
   PPIN        = '';              //Bank pin
 
 
