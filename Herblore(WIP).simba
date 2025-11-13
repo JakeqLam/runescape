@@ -27,19 +27,17 @@ var
   location         := "GrandExchange";
 
 
-//Chocolate
-itemOne          := "Knife";
+//Headless Arrows
+itemOne          := "Feather";
 itemOneQuantity  := 1;
 itemOneMin       := 1;
 
-itemTwo          := "Chocolate Bar";
+itemTwo          := "Arrow shaft";
 itemTwoQuantity  := 1;
 itemTwoMin       := 1;
 
-makeAllInterface := "Chocolate dust";
-itemDeposit      := "Chocolate dust";
-
-delay := 2000;
+makeAllInterface := "Headless Arrow";
+itemDeposit       := "";
 
 //**************************************************************
 // ─────────────────────────────────────────────────────────────
@@ -113,15 +111,10 @@ end;
 procedure setupAntiBan();
 begin
   Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
-  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
-  //Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
-  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
-  //Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
-  
-  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
+  //Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+
+  Antiban.AddBreak(ONE_SECOND*20, ONE_MINUTE*20, 0.2, 0.0);   //Short break
+
   Antiban.DoAntiban();
 end;
 
@@ -148,7 +141,7 @@ begin
   if (location = "GrandExchange") then
     TBank := [8552, 36470];
 
-  bankObj := TRSObject.Create(@Map.Walker, [1,1,7], [TBank], ['Bank Grand Exchange booth']);
+  bankObj := TRSObject.Create(@Map.Walker, [1,1,7], [TBank], ['Bank booth']);
   ERSItemQuantity.Integer2Quantity(itemTwoQuantity);
   Bank.SetQuantity(ERSItemQuantity.CUSTOM);
 
@@ -170,14 +163,14 @@ begin
 
   if Make.IsOpen() then
     Make.Select(makeAllInterface,QUANTITY_ALL);
-  Sleep(3000);
+  Sleep(4000);
   if not XPBar.EarnedXP() then
   begin
     if (Inventory.Combine(invOne, invTwo)) then
     begin
       writeln("["+timeElapsed+"]: "+"Combining [" + itemOne + "] with [" + itemTwo + "]");
       Inc(actions);
-      Sleep(delay);
+
       if Make.IsOpen() then
         Make.Select(makeAllInterface,QUANTITY_ALL);
     end;

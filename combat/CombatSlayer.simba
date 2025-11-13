@@ -3,7 +3,7 @@
 {$DEFINE WL_DEBUG_MOUSE}
 
 (******************************************************************************
-* Project: Draynor Agility
+* Project: Cyclops Fighter
 * Author : Jake Lam
 * Notes  :
 ******************************************************************************)
@@ -18,6 +18,13 @@ var
   LOGIN_PASS  = '';  //Password
   PPIN        = '';              //Bank pin
 
+  //Mob Name
+  mobName     := "Goblin";
+  food        := "";
+  hpThreshold := 55;
+
+  //Location Values
+  //MAP_CHUNK  :=  [Chunk(Box(44,55,45,55), 0)]
 
 // ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
@@ -25,28 +32,28 @@ var
   profile : TProfile;
 
   //Mob Pathfinding
-  obstacle      : TRSObject;
+  mob,loot      : TRSObject;
   player, pt    : TPoint;
+  mmMobPts, msMobPts : TPointArray;
+  mmItemPts, msItemPts : TPointArray;
+  region        : TBox;
+  path          : TGraphNodeArray;
 
   //Interactable objects
+  WGBank : TPoint := [7276, 36258];
 
-  //Coordinates
-  TRoughWall : TPoint := [8316, 37314]; //{X = 8316, Y = 37314}
-  TTightRope1 : TPoint := [8420, 371150]; //{X = 8420, Y = 37150}
-  TTightRope2 : TPoint := [7968, 37150];  //{X = 7968, Y = 37150}
-  TNarrowWall : TPoint := [8032, 37570]; //{X = 8032, Y = 37570}
-  TWall : TPoint := [8032, 37602]; {X = 8032, Y = 37602}
-  TGap : TPoint := [7276, 36258];
-  TCrate : TPoint := [8416, 37606]; // {X = 8416, Y = 37606}
+  //State machine with default values
+  Consumer : TRSConsumables;
+  nearestTarget: TPoint;
 
-  RoughWall,TightRope1,TightRope2,NarrowWall,Wall,Gap,Crate : TRSObject;
-
+  isAttacking : boolean := false;
   MAX_ATTEMPTS: Integer := 10;
 
   //Reporting values
   timeElapsed: String;
   timer  : TStopWatch;
   xp: Integer;
+  hp : Integer;
 
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
@@ -73,10 +80,19 @@ begin
   player := Map.Position(); //Player Position
 end;
 
-procedure checkMovementState();
+procedure checkCombatState();
 begin
   xp := XPBar.Read();
-
+  if not XPBar.EarnedXP() then
+  begin
+    isAttacking := false;
+    Writeln("[" + timeElapsed +"]: " + "No longer in combat");
+  end
+  else
+  begin
+    isAttacking := true;
+    //Writeln("currently in combat");
+  end;
 end;
 
 procedure setupAntiBan();
@@ -94,42 +110,91 @@ begin
   Antiban.DoAntiban();
 end;
 
-procedure setUpObstacles();
+// ─────────────────────────────────────────────────────────────
+// Section: Player Interaction
+// ─────────────────────────────────────────────────────────────
+
+//Heal if hp is low
+procedure healHP();
 begin
-  RoughWall := RoughWall.Create(@Map.Walker,[1,1,7],[TRoughWall], ['Climb','Rough','wall']);
-  TightRope1 := TightRope1.Create(@Map.Walker,[1,1,7],[TTightRope1], ['Cross','Tightrope']);
-  TightRope2 := TightRope2.Create(@Map.Walker,[1,1,7],[TTightRope2], ['Cross','Tightrope']);
-  NarrowWall := NarrowWall.Create(@Map.Walker,[1,1,7],[TNarrowWall], ['Climb','Rough']);
-  Wall := Wall.Create(@Map.Walker,[1,1,7],[TWall], ['Climb','Rough']);
-  Gap := Gap.Create(@Map.Walker,[1,1,7],[TGap], ['Climb','Rough']);
-  Crate := Crate.Create(@Map.Walker,[1,1,7],[TCrate], ['Climb','Rough']);
+    if not Consumables.Has(ERSConsumable.FOOD) then
+    begin
+      WriteLn("["+timeElapsed+"]: "+'No food found (e.g., Lobster).');
+    end;
+
+    hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
+    if hp <= hpThreshold then
+    begin
+      writeln("["+timeElapsed+"]: "+'HP is low. Eating '+food+" You have: "+toStr(Consumer.Count(ERSConsumable.FOOD)) + " left");
+      Consumer.Consume(ERSConsumable.FOOD);
+      writeln("[" + timeElapsed +"]: " + 'Current HP: ' + toStr(hp));
+    end;
 end;
 
-
-procedure performAgility();
+//Get the closest mob and set the target
+procedure setNearestTarget();
+var
+  i: Integer;
 begin
-  Mouse.Move(TTightRope1);
-  Mouse.Click(TTightRope1, EMouseButton.LEFT);
 
-  writeln("Climbing Rough Wall");
-  //RoughWall.WalkInteract(['Climb','Rough','wall']);
+  with Minimap.Bounds do
+    region := Box(X1+30, Y1+30, X2-30, Y2-30);
+  mmMobPts := Minimap.GetDots(ERSMinimapDot.NPC);
+  SetLength(msMobPts, Length(mmMobPts));
+  for i := 0 to High(mmMobPts) do
+    msMobPts[i] := Map.Walker.MM2Map(player, mmMobPts[i], Minimap.CompassRadians); // returns global map coords
+  nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);
+  mob := mob.Create(@Map.Walker,[1,1,7],[nearestTarget],[mobName]);
 
-  Sleep(6000);
+  mob.Hover();
+  if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+    begin
+      if not isAttacking then
+      begin
+        WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
+        mob.WalkInteract(['Attack']);
+        isAttacking := true;
+      end;
+  end;
 
-  writeln("Crossing Tight Rope 1");
-  //TightRope1.WalkInteract(['Cross', 'Tightrope']);
-  Sleep(6000);
+  Sleep(500);
+end;
 
-  writeln("Crossing Tight Rope 2");
-  //TightRope2.WalkInteract(['Cross', 'Tightrope']);
-  Sleep(200,1500);
+//loot items from players item list
+procedure lootItems();
+var
+  i : Integer;
+begin
+  with Minimap.Bounds do
+    region := Box(X1+30, Y1+30, X2-30, Y2-30);
+  mmItemPts := Minimap.GetDots(ERSMinimapDot.ITEM);
+  SetLength(msItemPts, Length(mmItemPts));
+  Sleep(2000);
+  writeln("["+timeElapsed+"]: "+"Scanning the ground for Loot");
 
-  writeln("Balancing on Narrow wall");
-  //NarrowWall.WalkInteract(['Balance', 'Narrow', 'wall']);
-  Sleep(200,1500);
+  for i := 0 to High(mmItemPts) do
+  begin
+    msItemPts[i] := Map.Walker.MM2Map(player, mmItemPts[i], 0);
+    loot := loot.Create(@Map.Walker,[1,1,7],[msItemPts[0]], ['Take','Coins']);
+    Sleep(3000); //wait for minimap to stabilize
+    loot.Hover();
+    Mouse.Click(EMouseButton.RIGHT);
+    Sleep(500,1000);
+    if ChooseOption.IsOpen() then
+    begin
+      ChooseOption.Select(['Take Coins']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Lobster']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Rune']);
+      Sleep(50,100);
+      ChooseOption.Select(['Take Dragon defender']);
 
-
-
+    end;
+    Sleep(4000);
+    healHP();
+    ChooseOption.Close();
+  end;
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -139,7 +204,7 @@ end;
 procedure printProgReport();
 begin
   Writeln("");
-  Writeln("+ Draynor Agility Runner️ -----------+");
+  Writeln("+ Warrior Guild Fighter ⚔️ -----------+");
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
@@ -166,10 +231,10 @@ begin
   timer.Start();
   printProgReport();
 
-  Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);//draynor village
+  Consumer.Setup();
+  Consumer.find(ERSConsumable.FOOD);
+  Map.Setup([Chunk(Box(44,55,45,55), 0)]);//Warriors Guild
 
-  writeln(Map.Position());
-  setUpObstacles();
   resetPlayerPos(); //Player
   setupAntiBan();
 
@@ -188,11 +253,20 @@ begin
       Writeln("[" + timeElapsed +" ]: " + "Closing chat dialog");
       Chat.Continue();
     end;
+    healHP();
+    checkCombatState();
+    resetPlayerPos(); //Player Position
+    //lootItems();
 
-    //resetPlayerPos(); //Player Position
-
-    performAgility();
-    break;
+    //if you are out of combat and the Mob is dead. Move to the next location
+    if not isAttacking then
+    begin
+      printProgReport();
+      resetPlayerPos(); //Player Position
+      Sleep(300);
+      setNearestTarget();    //recalibrate
+      Sleep(1000,2000);
+    end;
   end;
 end;
 

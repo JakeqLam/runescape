@@ -3,14 +3,15 @@
 {$DEFINE WL_DEBUG_MOUSE}
 
 (******************************************************************************
-* Project: Bankstander
+* Project: Runepack Buyer
 * Author : Jake Lam
-* Notes: Currently supports Grand Exchange
+* Notes:Buys Fire, Water, Air, and Earth runepacks from Auburys Magic shop and opens them.
+* You need money your inventory
 ******************************************************************************)
 
 var
 // ─────────────────────────────────────────────────────────────
-// Section: Fighter Settings
+// Section: Profile Settings
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
@@ -19,43 +20,20 @@ var
   PPIN        = '';              //Bank pin
 
 
-
-// ─────────────────────────────────────────────────────────────
-// Section: Chore Settings
-// ─────────────────────────────────────────────────────────────
-//**************************************************************
-  location         := "GrandExchange";
-
-
-//Chocolate
-itemOne          := "Knife";
-itemOneQuantity  := 1;
-itemOneMin       := 1;
-
-itemTwo          := "Chocolate Bar";
-itemTwoQuantity  := 1;
-itemTwoMin       := 1;
-
-makeAllInterface := "Chocolate dust";
-itemDeposit      := "Chocolate dust";
-
-delay := 2000;
-
 //**************************************************************
 // ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
   //Login values
   profile      : TProfile;
 
-  //Interactable objects
-  player       : TPoint;
-  bankObj     : TRSObject;
-  atpa         : T2DPointArray;
-  invOne, invTwo, invCreated : TRSItem;
 
-  //State variables
-  MAX_ATTEMPTS : Integer := 10;
-  itemOneCount,itemTwoCount : Integer;
+  //NPC Pathfinding
+  aubury,loot      : TRSObject;
+  player, pt, nearestTarget    : TPoint;
+  mmMobPts, msMobPts : TPointArray;
+  mmItemPts, msItemPts : TPointArray;
+  region        : TBox;
+  path          : TGraphNodeArray;
 
   //Reporting values
   timeElapsed  : String;
@@ -63,6 +41,11 @@ delay := 2000;
   xp           : Integer;
   hp           : Integer;
   actions      : Integer;
+
+  //State Variables
+  firePack,waterPack,airPack,earthPack : TRSItem;
+  fireCount,waterCount,airCount,earthCount,coinCount: Integer;
+
 
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
@@ -85,20 +68,22 @@ end;
 // ─────────────────────────────────────────────────────────────
 
 procedure printProgReport();
+var
+  fire,water,earth,air : Integer;
 begin
+
+  fire := Inventory.Items.ReadStack('Fire rune');
+  water := Inventory.Items.ReadStack('water rune');
+  earth := Inventory.Items.ReadStack('earth rune');
+  air := Inventory.Items.ReadStack('air rune');
+
   Writeln("");
-  Writeln("+ BankStander 💰----------------------+");
+  Writeln("+ Runepack Buyer 💰-------------------+");
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("| Total GP:                 " + toStr((fire+water+earth+air)*5) + "      | ");
   Writeln("+-------------------------------------+");
-  Writeln("");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
-  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("| Actions: " + toStr(actions));
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("");
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -112,13 +97,10 @@ end;
 
 procedure setupAntiBan();
 begin
-  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
-  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
-  //Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
-  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
-  //Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
+
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_SECOND * 30);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 3);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 2);
   
   Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
   Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
@@ -131,26 +113,57 @@ begin
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
 
   Inventory.Open();
+  firePack  := "Fire rune pack";
+  waterPack := "Water rune pack";
+  airPack   := "Air rune pack";
+  earthPack := "Earth rune pack";
 
-  invOne     := itemOne;
-  invTwo     := itemTwo;
-  invCreated := makeAllInterface;
 end;
 
-procedure setupBanking();
+procedure buyPacks();
 var
-  TBank : TPoint;
+  i: Integer;
+  j: Integer;
 begin
-  writeln("["+timeElapsed+"]: "+"Setting up Banking at " + location);
 
-  Map.Setup([ERSChunk.FALADOR, ERSChunk.VARROCK]);
+  for j := 0 to 3 do
+  begin
+    writeln("["+timeElapsed+"]: "+"Looking for Aubury's position. Attempt: " + toStr(j));
+    with Minimap.Bounds do
+      region := Box(X1+5, Y1+5, X2-5, Y2-5);
+    mmMobPts := Minimap.GetDots(ERSMinimapDot.NPC, region);
+    SetLength(msMobPts, Length(mmMobPts));
+    for i := 0 to High(mmMobPts) do
+      msMobPts[i] := Map.Walker.MM2Map(player, mmMobPts[i], Minimap.CompassRadians);
 
-  if (location = "GrandExchange") then
-    TBank := [8552, 36470];
+    nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);
+    aubury := aubury.Create(@Map.Walker,[1,1,7],[nearestTarget],["Aubury"]);
+    aubury.Hover();
+    if MainScreen.IsUpText('Talk-to Aubury ', False, 0.75, 100) then
+    begin
+      WriteLn("[" + timeElapsed +"]: "+ 'Found Aubury, attempting to trade');
+      aubury.WalkInteract(['Trade Aubury']);
+    end;
 
-  bankObj := TRSObject.Create(@Map.Walker, [1,1,7], [TBank], ['Bank Grand Exchange booth']);
-  ERSItemQuantity.Integer2Quantity(itemTwoQuantity);
-  Bank.SetQuantity(ERSItemQuantity.CUSTOM);
+    if(Shop.IsOpen()) then
+      break;
+  end;
+
+
+  if(Shop.IsOpen()) then
+  begin
+    WriteLn("[" + timeElapsed +"]: "+ 'Buying all Runepacks');
+    Shop.Buy('Earth rune pack', ERSShopQuantity.TEN);
+    Sleep(1000);
+    Shop.Buy('Air rune pack', ERSShopQuantity.TEN);
+    Sleep(1000);
+    Shop.Buy('Fire rune pack', ERSShopQuantity.FIVE);
+    Sleep(1000);
+    Shop.Buy('Water rune pack', ERSShopQuantity.FIVE);
+    Sleep(1000);
+    Shop.Close();
+    printProgReport();
+  end;
 
 end;
 
@@ -158,7 +171,27 @@ end;
 // Section: Player Interaction
 // ─────────────────────────────────────────────────────────────
 
-procedure makeItems();
+procedure checkInventory();
+begin
+
+  //Get the current runepack count
+  fireCount := Inventory.Items.Count([firePack]);
+  waterCount := Inventory.Items.Count([waterPack]);
+  airCount := Inventory.Items.Count([airPack]);
+  earthCount := Inventory.Items.Count([earthPack]);
+  coinCount := Inventory.Items.ReadStack('coins');
+
+  if(coinCount < 500) then
+    TerminateScript("Ran out of gold!");
+  if (fireCount < 1) and (waterCount < 1) and (airCount < 1) and (earthCount < 1) then
+  begin
+    writeln("["+timeElapsed+"]:" + " Ran out of rune packs");
+  end;
+
+
+end;
+
+procedure openPacks();
 begin
   //writeln(Inventory.GetSelected());
 
@@ -168,62 +201,32 @@ begin
     Inventory.Open();
   end;
 
-  if Make.IsOpen() then
-    Make.Select(makeAllInterface,QUANTITY_ALL);
-  Sleep(3000);
-  if not XPBar.EarnedXP() then
+  if (fireCount >= 1) then
   begin
-    if (Inventory.Combine(invOne, invTwo)) then
-    begin
-      writeln("["+timeElapsed+"]: "+"Combining [" + itemOne + "] with [" + itemTwo + "]");
-      Inc(actions);
-      Sleep(delay);
-      if Make.IsOpen() then
-        Make.Select(makeAllInterface,QUANTITY_ALL);
-    end;
-  end;
-  Sleep(100,200);
-end;
-
-procedure bankForItems();
-begin
-  writeln("["+timeElapsed+"]: " + "Banking for items");
-  Sleep(1000);
-  bankObj.WalkInteract(['Bank']);
-  Sleep(2000);
-
-  if(Bank.IsOpen()) then
+    Inventory.Items.Click(firePack);
+    writeln("["+timeElapsed+"]: "+"Opening fire pack");
+  end
+  else if (waterCount >= 1) then
   begin
-    Inventory.Items.Click(itemDeposit);
-    //Sleep(1000);
-    //Bank.OpenSearch();
-    //Bank.Search(itemTwo);
-    Sleep(1500);
-    Bank.Withdraw(itemTwo);
-    //Bank.CloseSearch();
-    printProgReport();
-    Sleep(2000);
-  end;
-  Bank.Close();
-end;
-
-procedure checkInventory();
-begin
-  itemOneCount := Inventory.Items.Count([invOne]);
-  itemTwoCount := Inventory.Items.Count([invTwo]);
-
-  if (itemTwoCount < itemTwoMin) then
+    Inventory.Items.Click(waterPack);
+    writeln("["+timeElapsed+"]: "+"Opening water pack");
+  end
+   else if (airCount >= 1) then
   begin
-    writeln("["+timeElapsed+"]: "+" Ran out of ["+itemTwo+"]");
-
-    bankForItems();
+    Inventory.Items.Click(airPack);
+    writeln("["+timeElapsed+"]: "+"Opening air pack");
+  end
+   else if (earthCount >= 1) then
+  begin
+    Inventory.Items.Click(earthPack);
+    writeln("["+timeElapsed+"]: "+"Opening earth pack");
   end;
+
+  Sleep(50,2000);
 end;
-
-
 
 // ─────────────────────────────────────────────────────────────
-// Section: Initializing Bankstander with settings
+// Section: Initializing Pack Opener with settings
 // ─────────────────────────────────────────────────────────────
 procedure init();
 begin
@@ -235,13 +238,14 @@ begin
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   timer.Start();
   printProgReport();
+  
+  Map.Setup([ERSChunk.FALADOR, ERSChunk.VARROCK]);
 
-  setupBanking();
   resetPlayerPos(); //Player
   setupAntiBan();
   setupInventory();
 
-
+  checkInventory();
   //Begin Loop
   while True do
   begin
@@ -257,8 +261,18 @@ begin
       Chat.Continue();
     end;
 
-    makeItems();
     checkInventory();
+    if (fireCount < 1) and (waterCount < 1) and (airCount < 1) and (earthCount < 1) then
+    begin
+      Sleep(800,2000);
+      buyPacks();
+    end
+    else if (fireCount >= 1) or (waterCount >= 1) or (airCount >= 1) or (earthCount >= 1) then
+    begin
+      Sleep(400,1600);
+      openPacks();
+    end;
+
     resetPlayerPos(); //Player Position
   end;
 end;
