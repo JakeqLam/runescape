@@ -14,8 +14,8 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = '';     //Username/Email
-  LOGIN_PASS  = '';  //Password
+  LOGIN_NAME  = 'KickingKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
   //Mob Name
@@ -133,31 +133,38 @@ end;
 procedure setNearestTarget();
 var
   i: Integer;
+  j: Integer;
 begin
 
-  with Minimap.Bounds do
-    region := Box(X1+30, Y1+30, X2-30, Y2-30);
-  mmMobPts := Minimap.GetDots(ERSMinimapDot.NPC);
-  SetLength(msMobPts, Length(mmMobPts));
-  for i := 0 to High(mmMobPts) do
-    msMobPts[i] := Map.Walker.MM2Map(player, mmMobPts[i], Minimap.CompassRadians); // returns global map coords
-  nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);
-  mob := mob.Create(@Map.Walker,[1,1,7],[nearestTarget],[mobName]);
-
-  mob.Hover();
-  if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+    for j := 0 to 5 do
     begin
-      if not isAttacking then
-      begin
-        WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
-        mob.WalkInteract(['Attack']);
-        isAttacking := true;
-        Sleep(1000,4000);
-      end;
-  end;
+      Sleep(500,1000);
+      writeln("["+timeElapsed+"]: "+"Looking for Goblins's position. Attempt: " + toStr(j));
 
-  Sleep(500);
+      with Minimap.Bounds do
+        region := Box(X1+45, Y1+45, X2-45, Y2-45);
+      mmMobPts := Minimap.GetDots(ERSMinimapDot.NPC);
+      SetLength(msMobPts, Length(mmMobPts));
+      for i := 0 to High(mmMobPts) do
+        msMobPts[i] := Map.Walker.MM2Map(player, mmMobPts[i], Minimap.CompassRadians); // returns global map coords
+      nearestTarget := Map.Walker.GetClosestPoint(player, msMobPts, path);
+      mob := mob.Create(@Map.Walker,[1,1,7],[nearestTarget],[mobName]);
+
+      mob.Hover();
+      if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+      begin
+          if not isAttacking then
+          begin
+            WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
+            mob.WalkInteract(['Attack']);
+            isAttacking := true;
+            Sleep(1000,4000);
+          end;
+      end;
+      mob.Interact(['Attack']);
+    end;
 end;
+
 
 // ─────────────────────────────────────────────────────────────
 // Section: Reporting

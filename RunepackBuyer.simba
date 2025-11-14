@@ -15,8 +15,8 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = '';     //Username/Email
-  LOGIN_PASS  = '';  //Password
+  LOGIN_NAME  = 'KickingKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
 
@@ -40,7 +40,7 @@ var
   timer        : TStopWatch;
   xp           : Integer;
   hp           : Integer;
-  actions      : Integer;
+  packs        : Integer;
 
   //State Variables
   firePack,waterPack,airPack,earthPack : TRSItem;
@@ -82,7 +82,9 @@ begin
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
-  Writeln("| Total GP:                 " + toStr((fire+water+earth+air)*5) + "      | ");
+  Writeln("| Total GP:                 " + toStr((fire+water+earth+air)*5) + "       ");
+  Writeln("| GP/Hr:                    " + toStr(((packs*100)*5)/(timer.Elapsed/1000)*3600));
+  Writeln("| Packs Opened:             " + toStr(packs));
   Writeln("+-------------------------------------+");
 end;
 
@@ -130,7 +132,7 @@ begin
   begin
     writeln("["+timeElapsed+"]: "+"Looking for Aubury's position. Attempt: " + toStr(j));
     with Minimap.Bounds do
-      region := Box(X1+5, Y1+5, X2-5, Y2-5);
+      region := Box(X1+35, Y1+35, X2-35, Y2-35);
     mmMobPts := Minimap.GetDots(ERSMinimapDot.NPC, region);
     SetLength(msMobPts, Length(mmMobPts));
     for i := 0 to High(mmMobPts) do
@@ -153,15 +155,39 @@ begin
   if(Shop.IsOpen()) then
   begin
     WriteLn("[" + timeElapsed +"]: "+ 'Buying all Runepacks');
-    Shop.Buy('Earth rune pack', ERSShopQuantity.TEN);
+    Shop.SetQuantity(ERSShopQuantity.ONE);
+    Sleep(1000,1500);
+    Shop.Buy('Fire rune pack', ERSShopQuantity.FIFTY);
     Sleep(1000);
-    Shop.Buy('Air rune pack', ERSShopQuantity.TEN);
-    Sleep(1000);
-    Shop.Buy('Fire rune pack', ERSShopQuantity.FIVE);
-    Sleep(1000);
-    Shop.Buy('Water rune pack', ERSShopQuantity.FIVE);
-    Sleep(1000);
+    if Inventory.IsFull() then
+    begin
+      Shop.Close();
+    end
+    else
+    begin
+      Shop.Buy('Air rune pack', ERSShopQuantity.FIFTY);
+      Sleep(800,1200);
+      if Inventory.IsFull() then
+      begin
+        Shop.Close();
+      end
+      else
+      begin
+        Shop.Buy('Fire rune pack', ERSShopQuantity.TEN);
+        Sleep(1000);
+        if Inventory.IsFull() then
+        begin
+          Shop.Close();
+        end
+        else
+        begin
+          Shop.Buy('Water rune pack', ERSShopQuantity.TEN);
+          Sleep(1000);
+        end;
+      end;
+    end;
     Shop.Close();
+    packs := packs + 23;
     printProgReport();
   end;
 
@@ -192,9 +218,10 @@ begin
 end;
 
 procedure openPacks();
+var
+  clicks : Integer;
 begin
-  //writeln(Inventory.GetSelected());
-
+  Sleep(25,800);
   if not (Inventory.IsOpen) then
   begin
     writeln("["+timeElapsed+"]:" + " Opening Inventory");
@@ -203,26 +230,42 @@ begin
 
   if (fireCount >= 1) then
   begin
-    Inventory.Items.Click(firePack);
+    for clicks := 0 to fireCount do
+    begin
+      Sleep(300,800);
+      Inventory.Items.Click(firePack);
+    end;
     writeln("["+timeElapsed+"]: "+"Opening fire pack");
   end
   else if (waterCount >= 1) then
   begin
-    Inventory.Items.Click(waterPack);
+    for clicks := 0 to waterCount do
+    begin
+      Sleep(400,800);
+      Inventory.Items.Click(waterPack);
+    end;
+
     writeln("["+timeElapsed+"]: "+"Opening water pack");
   end
    else if (airCount >= 1) then
   begin
-    Inventory.Items.Click(airPack);
+    for clicks := 0 to airCount do
+    begin
+      Sleep(600,900);
+      Inventory.Items.Click(airPack);
+    end;
+
     writeln("["+timeElapsed+"]: "+"Opening air pack");
   end
    else if (earthCount >= 1) then
   begin
-    Inventory.Items.Click(earthPack);
+    for clicks := 0 to earthCount do
+    begin
+      Sleep(600,800);
+      Inventory.Items.Click(earthPack);
+    end;
     writeln("["+timeElapsed+"]: "+"Opening earth pack");
   end;
-
-  Sleep(50,2000);
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -269,7 +312,7 @@ begin
     end
     else if (fireCount >= 1) or (waterCount >= 1) or (airCount >= 1) or (earthCount >= 1) then
     begin
-      Sleep(400,1600);
+      Sleep(1000);
       openPacks();
     end;
 

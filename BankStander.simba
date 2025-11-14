@@ -14,8 +14,8 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = '';     //Username/Email
-  LOGIN_PASS  = '';  //Password
+  LOGIN_NAME  = 'KickingKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
 
