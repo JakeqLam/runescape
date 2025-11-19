@@ -3,7 +3,7 @@
 {$DEFINE WL_DEBUG_MOUSE}
 
 (******************************************************************************
-* Project: Bankstander
+* Project: Herb Cleaner
 * Author : Jake Lam
 * Notes: Currently supports Grand Exchange
 ******************************************************************************)
@@ -14,8 +14,8 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = '';     //Username/Email
-  LOGIN_PASS  = '';  //Password
+  LOGIN_NAME  = 'SoupOrSeyan';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
 
@@ -24,20 +24,11 @@ var
 // Section: Chore Settings
 // ─────────────────────────────────────────────────────────────
 //**************************************************************
-  location         := "GrandExchange";
 
+  location       := "GrandExchange";
 
-//Headless Arrows
-itemOne          := "Feather";
-itemOneQuantity  := 1;
-itemOneMin       := 1;
-
-itemTwo          := "Arrow shaft";
-itemTwoQuantity  := 1;
-itemTwoMin       := 1;
-
-makeAllInterface := "Headless Arrow";
-itemDeposit       := "";
+  herb          := "Grimy tarromin";
+  itemDeposit   := "Tarromin";
 
 //**************************************************************
 // ─────────────────────────────────────────────────────────────
@@ -48,19 +39,18 @@ itemDeposit       := "";
   //Interactable objects
   player       : TPoint;
   bankObj     : TRSObject;
-  atpa         : T2DPointArray;
-  invOne, invTwo, invCreated : TRSItem;
 
   //State variables
-  MAX_ATTEMPTS : Integer := 10;
-  itemOneCount,itemTwoCount : Integer;
+  MAX_ATTEMPTS : Integer := 15;
+  ATTEMPTS : Integer := 0;
+
+  herbCount : Integer;
 
   //Reporting values
   timeElapsed  : String;
   timer        : TStopWatch;
   xp           : Integer;
-  hp           : Integer;
-  actions      : Integer;
+  herbsCleaned      : Integer;
 
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
@@ -85,7 +75,7 @@ end;
 procedure printProgReport();
 begin
   Writeln("");
-  Writeln("+ BankStander 💰----------------------+");
+  Writeln("+ Herb Cleaner 💰----------------------+");
   Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
@@ -94,7 +84,7 @@ begin
   Writeln("+------------ XP Gained --------------+");
   Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
   Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("| Actions: " + toStr(actions));
+  Writeln("| Herbs Cleaned: " + toStr(herbsCleaned));
   Writeln("+------------ XP Gained --------------+");
   Writeln("");
 end;
@@ -111,10 +101,15 @@ end;
 procedure setupAntiBan();
 begin
   Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  //Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
-
-  Antiban.AddBreak(ONE_SECOND*20, ONE_MINUTE*20, 0.2, 0.0);   //Short break
-
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  //Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+  //Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
+  
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
   Antiban.DoAntiban();
 end;
 
@@ -124,10 +119,6 @@ begin
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
 
   Inventory.Open();
-
-  invOne     := itemOne;
-  invTwo     := itemTwo;
-  invCreated := makeAllInterface;
 end;
 
 procedure setupBanking();
@@ -137,12 +128,14 @@ begin
   writeln("["+timeElapsed+"]: "+"Setting up Banking at " + location);
 
   Map.Setup([ERSChunk.FALADOR, ERSChunk.VARROCK]);
-
+  writeln("[" + timeElapsed +" ]: " + "You are at Position: " + toStr(Map.Position()));
   if (location = "GrandExchange") then
-    TBank := [8552, 36470];
+    TBank := [8570, 36470];
 
-  bankObj := TRSObject.Create(@Map.Walker, [1,1,7], [TBank], ['Bank booth']);
-  ERSItemQuantity.Integer2Quantity(itemTwoQuantity);
+  bankObj := TRSObject.Create(@Map.Walker, [1,1,7], [TBank], ['Bank']);
+
+  bankObj.WalkClick();
+  ERSItemQuantity.Integer2Quantity(27);
   Bank.SetQuantity(ERSItemQuantity.CUSTOM);
 
 end;
@@ -151,64 +144,130 @@ end;
 // Section: Player Interaction
 // ─────────────────────────────────────────────────────────────
 
-procedure makeItems();
+procedure cleanHerbs();
+var
+  clicks : Integer;
+  slots: TBoxArray;
+  pattern: TIntegerArray;
 begin
-  //writeln(Inventory.GetSelected());
-
   if not (Inventory.IsOpen) then
   begin
     writeln("["+timeElapsed+"]:" + " Opening Inventory");
     Inventory.Open();
   end;
 
-  if Make.IsOpen() then
-    Make.Select(makeAllInterface,QUANTITY_ALL);
-  Sleep(4000);
-  if not XPBar.EarnedXP() then
-  begin
-    if (Inventory.Combine(invOne, invTwo)) then
-    begin
-      writeln("["+timeElapsed+"]: "+"Combining [" + itemOne + "] with [" + itemTwo + "]");
-      Inc(actions);
+  slots := Inventory.Slots.Boxes();
+  pattern := Inventory.RandomPattern();
 
-      if Make.IsOpen() then
-        Make.Select(makeAllInterface,QUANTITY_ALL);
+  writeln("["+timeElapsed+"]: "+"Cleaning Herb: " + herb);
+  //randomly select herbs in the inventory
+  for clicks := 0 to High(pattern)-2 do
+  begin
+    if (herbCount >= 1) then
+    begin
+
+      Inventory.Slots.click(pattern[clicks+1]);
+      Sleep(50,65);
+      herbCount := Inventory.Items.Count([herb]);
     end;
   end;
-  Sleep(100,200);
+
+  //handle any loose herbs not cleaned by the random pattern
+  if (herbCount >= 1) then
+  begin
+    for clicks := 0 to herbCount do
+    begin
+      Sleep(100);
+      Inventory.Items.Click(herb);
+    end;
+  end;
+
+  herbsCleaned := herbsCleaned + 27;
 end;
+
 
 procedure bankForItems();
 begin
-  writeln("["+timeElapsed+"]: " + "Banking for items");
+  writeln("["+timeElapsed+"]: " + "Banking for items. Attemtps: " + toStr(ATTEMPTS));
+
+  //unselect selected herbs
+  if Inventory.GetSelected() > -1 then
+  begin
+    Inventory.Slots.Click(Inventory.GetSelected());
+  end;
+
   Sleep(1000);
-  bankObj.WalkInteract(['Bank']);
-  Sleep(2000);
+  bankObj.WalkClick();
+
+  if ChooseOption.IsOpen() then
+  begin
+    ChooseOption.Select(['Bank']);
+    Sleep(1000);
+    if(Bank.IsOpen()) then
+      begin
+        Inventory.Items.Click(itemDeposit);
+
+        Sleep(1500);
+        Bank.Withdraw(herb);
+
+        printProgReport();
+        Sleep(1000);
+      end;
+      Bank.Close();
+  end;
+
+  if MainScreen.IsUpText('Talk-to Banker ', False, 0.75, 100) then
+  begin
+
+      bankObj.WalkInteract(['Bank Banker']);
+      Sleep(1000);
+
+      if(Bank.IsOpen()) then
+      begin
+        Inventory.Items.Click(itemDeposit);
+
+        Sleep(1500);
+        Bank.Withdraw(herb);
+
+        printProgReport();
+        Sleep(1000);
+      end;
+      Bank.Close();
+  end
+  else if MainScreen.IsUpText('Bank Grand Exchange Booth', False, 0.75, 100) then
+  begin
+  writeln("exchange option");
+      bankObj.Click();
+      Sleep(1000);
+
+      if(Bank.IsOpen()) then
+      begin
+        Inventory.Items.Click(itemDeposit);
+
+        Sleep(1500);
+        Bank.Withdraw(herb);
+
+        printProgReport();
+        Sleep(1000);
+      end;
+      Bank.Close();
+  end;
 
   if(Bank.IsOpen()) then
-  begin
-    Inventory.Items.Click(itemDeposit);
-    //Sleep(1000);
-    //Bank.OpenSearch();
-    //Bank.Search(itemTwo);
-    Sleep(1500);
-    Bank.Withdraw(itemTwo);
-    //Bank.CloseSearch();
-    printProgReport();
-    Sleep(2000);
-  end;
-  Bank.Close();
+    Bank.Close();
 end;
 
 procedure checkInventory();
 begin
-  itemOneCount := Inventory.Items.Count([invOne]);
-  itemTwoCount := Inventory.Items.Count([invTwo]);
+  herbCount := Inventory.Items.Count([herb]);
+  if(herbCount > 1) then
+    ATTEMPTS := 0;
 
-  if (itemTwoCount < itemTwoMin) then
+  if (herbCount <= 1) then
   begin
-    writeln("["+timeElapsed+"]: "+" Ran out of ["+itemTwo+"]");
+    writeln("["+timeElapsed+"]: "+"Ran out of ["+herb+"]");
 
+    inc(ATTEMPTS);
     bankForItems();
   end;
 end;
@@ -250,9 +309,12 @@ begin
       Chat.Continue();
     end;
 
-    makeItems();
+    cleanHerbs();
     checkInventory();
     resetPlayerPos(); //Player Position
+
+    if (ATTEMPTS = MAX_ATTEMPTS) THEN
+      TerminateScript("Attempted to bank too many times!");
   end;
 end;
 

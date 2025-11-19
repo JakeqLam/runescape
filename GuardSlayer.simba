@@ -5,7 +5,7 @@
 (******************************************************************************
 * Project: Goblin Slayer
 * Author : Jake Lam
-* Notes  : Slays Goblins in Lumbridge
+* Notes  : Slays Guards in Varrock
 ******************************************************************************)
 
 var
@@ -19,12 +19,12 @@ var
   PPIN        = '';              //Bank pin
 
   //Mob Name
-  mobName     := "Goblin";
-  food        := "Shrimps";
-  hpThreshold := 7;
+  mobName     := "Guard";
+  food        := "Herring";
+  hpThreshold := 10;
   buryBones   := true;
 
-  anchorPt : TPoint := [8908, 37482]; //fill this is with your reset anchor position
+  anchorPt : TPoint := [8748, 36570]; //fill this is with your reset anchor position
 
 // ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
@@ -185,7 +185,6 @@ begin
    ChooseOption.Close();
 
 end;
-
 //Get the closest mob and set the target
 procedure attackNearestTarget();
 var
@@ -268,7 +267,7 @@ begin
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
   Inventory.Open();
 
-  Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]);
+  Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID,ERSChunk.VARROCK]);
   loot := TRSEntity.Create(@Map.Walker,[1,1,7],80,[anchorPt], ['Bones'], [ERSMinimapDot.Item]);
 
   resetPlayerPos(); //Player
@@ -298,7 +297,7 @@ begin
     checkCombatState();
     resetPlayerPos(); //Player Position
 
-    //lootItems();
+    lootItems();
     trainPrayer();
 
     //if you are out of combat and the Mob is dead. Move to the next location
