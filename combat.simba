@@ -3,9 +3,11 @@
 {$DEFINE WL_DEBUG_MOUSE}
 
 (******************************************************************************
-* Project: Goblin Slayer
+* Project: General Combat Bot
 * Author : Jake Lam
-* Notes  : Slays Guards in Varrock
+* Notes  : Slays any mob. You must setup the Map first
+* Steps: Go to https://map.waspscripts.com/
+* Grab the Map Chunk value. Lumbridge ex: Map.Setup([Chunk(Box(49,51,51,49), 0)]);
 ******************************************************************************)
 
 var
@@ -14,7 +16,7 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'KickingKiwi';     //Username/Email
+  LOGIN_NAME  = 'SoupOrSeyan';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
@@ -24,8 +26,8 @@ var
   hpThreshold := 10;
   buryBones   := true;
 
-  anchorPt : TPoint := [8716, 37246]; //fill this is with your reset anchor position
-
+  anchorPt : TPoint      := [8716, 37246]; //fill this is with your reset anchor position
+  //mapChunk : TRSMapChunk := Map.Setup([Chunk(Box(49,51,51,49), 0)]);
 // ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
   //Login values
@@ -194,7 +196,7 @@ begin
 
     for j := 0 to 4 do
     begin
-      writeln("["+timeElapsed+"]: "+"Looking for Goblins's position. Attempt: " + toStr(j));
+      writeln("["+timeElapsed+"]: "+"Looking for " + mobName + "'s position. Attempt: " + toStr(j));
       if j = 4 then
       begin
         anchorPos.WalkClick();

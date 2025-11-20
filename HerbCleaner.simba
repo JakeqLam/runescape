@@ -27,8 +27,8 @@ var
 
   location       := "GrandExchange";
 
-  herb          := "Grimy tarromin";
-  itemDeposit   := "Tarromin";
+  herb          := "Grimy harralander";
+  itemDeposit   := "Harralander";
 
 //**************************************************************
 // ─────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ var
   bankObj     : TRSObject;
 
   //State variables
-  MAX_ATTEMPTS : Integer := 15;
+  MAX_ATTEMPTS : Integer := 8;
   ATTEMPTS : Integer := 0;
 
   herbCount : Integer;
@@ -181,8 +181,6 @@ begin
       Inventory.Items.Click(herb);
     end;
   end;
-
-  herbsCleaned := herbsCleaned + 27;
 end;
 
 
@@ -209,7 +207,6 @@ begin
 
         Sleep(1500);
         Bank.Withdraw(herb);
-
         printProgReport();
         Sleep(1000);
       end;
