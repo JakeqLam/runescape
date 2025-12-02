@@ -1,0 +1,57 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+var
+  loot: TRSEntity;
+  player: TPoint;
+
+
+
+//loot items from players item list
+procedure lootItems();
+var
+  i : Integer;
+  atpa:   T2DPointArray;
+
+begin
+
+   if loot.Find(atpa) then
+   begin
+    if atpa <> [] then
+      Mouse.Move(atpa.Random.Random);
+      ShowOnTarget(loot);
+      Sleep(500,1000);
+      Mouse.Click(EMouseButton.RIGHT);
+
+      if ChooseOption.IsOpen() then
+      begin
+        Sleep(500,1000);
+        ChooseOption.Select(['Take Coins']);
+        Sleep(1000);
+        Mouse.Click(EMouseButton.RIGHT);
+        ChooseOption.Select(['Take Bones']);
+        Sleep(1000);
+   end;
+   ChooseOption.Close();
+   end;
+end;
+
+begin
+   Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]);
+   player :=  Map.Position();
+
+
+   loot := TRSEntity.Create(@Map.Walker,[1,1,7],80,[player], ['Bones'], [ERSMinimapDot.Item]);
+
+   loot.Finder.ColorClusters += [
+   [$CCCCD2, 0.492, EColorSpace.LCH, [0.626, 1.188, 1.188]],
+   [$C7C4CE, 2.504, EColorSpace.LCH, [0.637, 2.161, 0.203]],8
+   ];
+
+   while True do
+   begin
+      lootItems();
+
+   end;
+end.

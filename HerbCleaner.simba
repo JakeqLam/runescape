@@ -27,8 +27,8 @@ var
 
   location       := "GrandExchange";
 
-  herb          := "Grimy harralander";
-  itemDeposit   := "Harralander";
+  herb          := "Grimy marrentill";
+  itemDeposit   := "Marrentill";
 
 //**************************************************************
 // ─────────────────────────────────────────────────────────────

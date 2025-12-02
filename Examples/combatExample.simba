@@ -1,0 +1,77 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+var
+  player: TPoint;
+   //Mob Name
+  mobName     := "Cow";
+  food        := "Herring";
+
+  anchorPt : TPoint      := [8948, 37266]; //fill this is with your reset anchor position
+
+  //Pathfinding
+  loot: TRSEntity;
+  mob      : TRSEntity;
+
+  nearestTarget: TPoint;
+
+  isAttacking : boolean := false;
+  xp: Integer;
+procedure checkCombatState();
+begin
+  xp := XPBar.Read();
+  if not XPBar.EarnedXP() then
+  begin
+    isAttacking := false;
+    Writeln("not in combat");
+  end
+  else
+  begin
+    isAttacking := true;
+    Writeln("currently in combat");
+  end;
+end;
+
+//Get the closest mob and set the target
+procedure attackTarget();
+begin
+
+      ShowOnTarget(mob);
+
+      mob.Hover();
+      if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+      begin
+          if not isAttacking then
+          begin
+
+            Mouse.Click(EMouseButton.LEFT);
+            isAttacking := true;
+            Sleep(1000,4000);
+
+          end;
+      end;
+end;
+
+begin
+   Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]);
+   player :=  Map.Position();
+
+   mob := TRSEntity.Create(@Map.Walker,[1,1,7],80,[player], [mobName], [ERSMinimapDot.npc]);
+
+   //loot.Finder.ColorClusters += [
+   //[$CCCCD2, 0.492, EColorSpace.LCH, [0.626, 1.188, 1.188]],
+   //[$C7C4CE, 2.504, EColorSpace.LCH, [0.637, 2.161, 0.203]],8
+   //];
+
+   while True do
+   begin
+      Sleep(2000);
+      checkCombatState();
+      if not isAttacking then
+      begin
+        attackTarget();
+        Sleep(2000);
+      end;
+   end;
+end.
