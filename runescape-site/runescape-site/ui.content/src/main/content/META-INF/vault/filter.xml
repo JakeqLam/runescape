@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workspaceFilter version="1.0">
+    <filter root="/conf/runescape" mode="merge"/>
+    <filter root="/content/runescape" mode="merge"/>
+    <filter root="/content/dam/runescape" mode="merge">
+        <exclude pattern="/content/dam/runescape(/.*)?"/>
+        <include pattern="/content/dam/runescape/jcr:content(/.*)?"/>
+    </filter>
+    <filter root="/content/dam/runescape/asset.jpg" mode="merge"/>
+    <filter root="/content/experience-fragments/runescape" mode="merge"/>
+</workspaceFilter>
