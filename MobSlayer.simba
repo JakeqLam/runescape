@@ -26,7 +26,7 @@ var
   hpThreshold := 10;
   trainPrayer := true;
 
-  lootList : TStringArray := ['Bones','Coins'];
+  lootList : TStringArray := ['Coins'];
   anchorPt : TPoint      := [8948, 37266]; //fill this is with your reset anchor position
 
 // ─────────────────────────────────────────────────────────────
@@ -173,24 +173,28 @@ begin
    end;
 end;
 
-
 //Get the closest mob and set the target
 procedure attackTarget();
+var
+  atpa:   T2DPointArray;
 begin
-      writeln("["+timeElapsed+"]: "+"Looking for " + mobName);
-      //ShowOnTarget(mob);
+    Sleep(1500);
 
-      mob.Hover();
-      if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
-      begin
-          if not isAttacking then
-          begin
-            WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
-            Mouse.Click(EMouseButton.LEFT);
-            isAttacking := true;
-            Sleep(1000,4000);
-          end;
-      end;
+    if mob.Find(atpa) then
+    begin
+        mob.Hover();
+        ShowOnTarget(mob);
+        if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+        begin
+            if not isAttacking then
+            begin
+              WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
+              Mouse.Click(EMouseButton.LEFT);
+              isAttacking := true;
+            end;
+        end;
+    end;
+    Sleep(1500);
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -253,6 +257,8 @@ begin
   while True do
   begin
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+    if not RSClient.IsLoggedIn then
+      Login.DoLogin(profile);
 
     Antiban.DoAntiban();
     Sleep(1500,2000);
@@ -263,21 +269,30 @@ begin
       Chat.Continue();
     end;
     healHP();
-    Sleep(2500);
     checkCombatState();
-    Sleep(1000,1200);
 
     if trainPrayer then
        buryBones();
+
     //if you are out of combat and the Mob is dead. Move to the next target
     if not isAttacking then
     begin
       Map.Walker.WalkBlind(anchorPt);
       lootItems();
-      //printProgReport();
-      Sleep(3000);
-      attackTarget();
-      Sleep(1000,2000);
+
+      for i := 0 to 4 do
+      begin
+        writeln("["+timeElapsed+"]: "+"Looking for " + mobName + "'s position. Attempt: " + toStr(i));
+        if i = 4 then
+        begin
+          Map.Walker.WalkBlind(anchorPt);
+          Writeln("[" + timeElapsed +"]: " + "Could not find " + mobName +" , Walking to anchor coordinate: " + toStr(anchorPt));
+          printProgReport();
+        end;
+        attackTarget();
+        if isAttacking then
+          break;
+      end;
     end;
   end;
 end;
