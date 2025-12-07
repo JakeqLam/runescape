@@ -183,7 +183,7 @@ begin
     if mob.Find(atpa) then
     begin
         mob.Hover();
-        ShowOnTarget(mob);
+        //ShowOnTarget(mob);
         if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
         begin
             if not isAttacking then

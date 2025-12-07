@@ -14,7 +14,7 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'KickingKiwi';     //Username/Email
+  LOGIN_NAME  = 'SouperSayon';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
@@ -229,8 +229,8 @@ procedure init();
 begin
 
   setupLogin();
-  if not RSClient.IsLoggedIn then
-    Login.DoLogin(profile);
+  //if not RSClient.IsLoggedIn then
+    //Login.DoLogin(profile);
 
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   timer.Start();

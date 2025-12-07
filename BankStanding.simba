@@ -2,7 +2,11 @@
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_DEBUG_MOUSE}
 
-//example of how to bank and withdraw
+(******************************************************************************
+* Project: Bankstander
+* Author : Jake Lam
+* Notes: Currently supports Grand Exchange
+******************************************************************************)
 
 var
 
@@ -10,7 +14,7 @@ var
   player       : TPoint;
   banker     : TRSEntity;
   atpa         : T2DPointArray;
-  invOne, invTwo, invCreated, invResult : TRSItem;
+  invOne, invTwo, invCreated : TRSItem;
   TBank : TPoint := [8480, 36294]; //GE
 
   itemOne          := "Yew Logs";
@@ -22,7 +26,7 @@ var
   itemTwoMin       := 1;
 
   makeAllInterface := "Yew longbows";
-  itemResult := "Yew longbow (u)";
+
 
 procedure setupInventory();
 begin
@@ -51,47 +55,37 @@ begin
            ChooseOption.Select(['Bank Banker']);
 
            Sleep(3000);
-           if(Bank.IsOpen()) then
-           begin
-              Inventory.Items.Click(itemResult);
-              Bank.Withdraw(invOne);
-              Sleep(1000);
-            end;
-           Bank.Close();
 
+           Bank.Close();
         end;
     end;
 end;
+
 
 procedure init();
 var
   i : Integer;
 begin
 
-  //Map.Setup([ERSChunk.VARROCK]);
-  writeln("debug");
+  Map.Setup([Chunk(Box(48,55,51,53), 0)]);
 
-  setupInventory();
   player := Map.Position(); //Player Position
 
-  banker := TRSEntity.Create(@Map.Walker,[1,1,7],80,[TBank], ['Banker'], [ERSMinimapDot.NPC]);
+  banker := TRSEntity.Create(@Map.Walker,[1,1,7],80,[player], ['Banker'], [ERSMinimapDot.NPC]);
+
   ERSItemQuantity.Integer2Quantity(itemOneQuantity);
   Bank.SetQuantity(ERSItemQuantity.CUSTOM);
-
   while True do
   begin
     if Minimap.CompassDegrees > 5 then
       Minimap.CompassDegrees := 60;
-    writeln player;
+    player := Map.Position();
     Sleep(1000);
 
-
-    ShowOnTarget(banker);
-
-    for i := 0 to 4 do
+     for i := 0 to 4 do
      begin
        Sleep(2000);
-       //bankForItems();
+       bankForItems();
 
        if i = 4 then
        begin
@@ -101,7 +95,7 @@ begin
          ShowOnTarget(banker);
        end;
 
-    end;
+     end;
   end;
 
 
