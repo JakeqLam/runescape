@@ -1,0 +1,9 @@
+{$I WaspLib/osrs.simba}
+begin
+  Map.Setup([ERSChunk.VARROCK]);
+  Bank.open();
+
+
+  Bank.SetQuantity(ERSItemQuantity.String2Quantity("2"));
+  Bank.
+end.

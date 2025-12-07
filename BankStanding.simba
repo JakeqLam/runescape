@@ -9,13 +9,20 @@
 ******************************************************************************)
 
 var
+// ─────────────────────────────────────────────────────────────
+// Section: Bankstander Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
 
-  //Interactable objects
-  player       : TPoint;
-  banker     : TRSEntity;
-  atpa         : T2DPointArray;
-  invOne, invTwo, invCreated : TRSItem;
-  TBank : TPoint := [8480, 36294]; //GE
+  LOGIN_NAME  = 'SouperSayon';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  //Login values
+  profile      : TProfile;
+// ─────────────────────────────────────────────────────────────
+// Section: Chore Settings
+// ─────────────────────────────────────────────────────────────
+//**************************************************************
 
   itemOne          := "Yew Logs";
   itemOneQuantity  := 27;
@@ -25,14 +32,85 @@ var
   itemTwoQuantity  := 1;
   itemTwoMin       := 1;
 
-  makeAllInterface := "Yew longbows";
+  makeAllInterface := "Yew longbow";
+  itemResult := "Yew longbow (u)";
+ //**************************************************************
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+  //State variables
+  MAX_ATTEMPTS : Integer := 10;
+  itemOneCount,itemTwoCount : Integer;
+
+  //Interactable objects
+  player       : TPoint;
+  invOne, invTwo, invCreated, invResult : TRSItem;
+  TBank : TPoint := [12668, 36474]; //GE
+
+  //Reporting values
+  timeElapsed  : String;
+  timer        : TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
 
 
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ BankStander 💰----------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure setupAntiBan();
+begin
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
+  Antiban.DoAntiban();
+end;
+
+procedure setupBanking();
+begin
+  Map.Setup([ERSChunk.VARROCK]);
+  player := Map.Position(); //Player Position
+end;
 procedure setupInventory();
 begin
 
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
-
   Inventory.Open();
 
   invOne     := itemOne;
@@ -40,70 +118,105 @@ begin
   invCreated := makeAllInterface;
 end;
 
-procedure bankForItems();
-var
-  atpa: T2DPointArray;
 
+procedure makeItems();
 begin
-    if banker.Find(atpa) then
+  //writeln(Inventory.GetSelected());
+
+  if not (Inventory.IsOpen) then
+  begin
+    writeln("["+timeElapsed+"]:" + " Opening Inventory");
+    Inventory.Open();
+  end;
+
+  if Make.IsOpen() then
+    Make.Select(makeAllInterface,QUANTITY_ALL);
+  Sleep(3000);
+  if not XPBar.EarnedXP() then
+  begin
+    if (Inventory.Combine(invOne, invTwo)) then
     begin
-        banker.Hover();
-        if MainScreen.IsUpText('Talk-to Banker', False, 0.75, 100) then
-        begin
-           WriteLn("[" + "" +"]: "+ 'Banking for items');
-           Mouse.Click(EMouseButton.Right);
-           ChooseOption.Select(['Bank Banker']);
+      writeln("["+timeElapsed+"]: "+"Combining [" + itemOne + "] with [" + itemTwo + "]");
+      Inc(actions);
 
-           Sleep(3000);
-
-           Bank.Close();
-        end;
+      if Make.IsOpen() then
+        Make.Select(makeAllInterface,QUANTITY_ALL);
     end;
+  end;
+  Sleep(100,200);
+end;
+
+procedure checkInventory();
+begin
+  itemOneCount := Inventory.Items.Count([invOne]);
+  itemTwoCount := Inventory.Items.Count([invTwo]);
+
+  if (itemOneCount < itemTwoMin) then
+  begin
+    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemOne+"]");
+
+    Bank.Open();
+    if(Bank.IsOpen()) then
+    begin
+      Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemOneQuantity));
+      Sleep(1000);
+      Inventory.Items.Click(itemResult);
+      Sleep(100);
+      Bank.Withdraw(invOne,True);
+      Sleep(1000);
+    end;
+    Bank.Close();
+  end
+  else if (itemTwoCount < itemTwoMin) then
+  begin
+    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemTwo+"]");
+    Bank.Open();
+
+    if(Bank.IsOpen()) then
+    begin
+      Sleep(1000);
+      Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemTwoQuantity));
+      Sleep(1000);
+      Inventory.Items.Click(itemResult);
+      Sleep(100);
+      Bank.Withdraw(invTwo,True);
+      Sleep(1000);
+    end;
+    Bank.Close();
+  end;
 end;
 
 
 procedure init();
-var
-  i : Integer;
 begin
+  setupLogin();
+  if not RSClient.IsLoggedIn then
+    Login.DoLogin(profile);
 
-  Map.Setup([Chunk(Box(48,55,51,53), 0)]);
+  timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+  timer.Start();
+  printProgReport();
 
-  player := Map.Position(); //Player Position
+  setupAntiBan();
+  setupInventory();
+  setupBanking();
 
-  banker := TRSEntity.Create(@Map.Walker,[1,1,7],80,[player], ['Banker'], [ERSMinimapDot.NPC]);
-
-  ERSItemQuantity.Integer2Quantity(itemOneQuantity);
-  Bank.SetQuantity(ERSItemQuantity.CUSTOM);
+  Bank.Hover();
   while True do
   begin
     if Minimap.CompassDegrees > 5 then
       Minimap.CompassDegrees := 60;
-    player := Map.Position();
     Sleep(1000);
 
-     for i := 0 to 4 do
-     begin
-       Sleep(2000);
-       bankForItems();
-
-       if i = 4 then
-       begin
-         writeln("could not find bank");
-         Minimap.CompassDegrees := 120;
-         banker.hover();
-         ShowOnTarget(banker);
-       end;
-
-     end;
+    makeItems();
+    checkInventory();
   end;
-
-
-
 
 end;
 
 begin
   init();
 end.
+
+
 

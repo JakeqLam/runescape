@@ -1,0 +1,33 @@
+{$I WaspLib/osrs.simba}
+
+var
+  baseURL: string := "https://prices.runescape.wiki/api/v1/osrs/latest?";
+  json: String;
+  highPrice, lowPrice: Integer;
+begin
+  writeln("=== Fletching Yew logs  ===");
+  json := HTTPClient.Get(baseURL + "id=1515");
+  writeln("Yew logs: " + json);
+  writeln("");
+  writeln("=== Making Ranarr Potions (unf ===)");
+  json := HTTPClient.Get(baseURL + "id=207");
+  writeln("Grimy Ranarr: " + json);
+
+  json := HTTPClient.Get(baseURL + "id=257");
+  writeln("Ranarr Weed: " + json);
+
+  json := HTTPClient.Get(baseURL + "id=99");
+  writeln("Ranarr Potions (unf): " + json);
+
+
+
+
+
+
+  //highPrice := GetJsonInt(json, 'high');
+  //lowPrice  := GetJsonInt(json, 'low');
+
+  //WriteLn('High: ', highPrice);
+  //WriteLn('Low:  ', lowPrice);
+end.
+
