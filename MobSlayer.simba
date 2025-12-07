@@ -30,6 +30,7 @@ var
   bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
   anchorPt   : TPoint := [12852,36578];// bank location
 
+  playerSensedIdling := 15;//seconds
 // ─────────────────────────────────────────────────────────────
 // script values
 // ─────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ var
   hp : Integer;
 
   //fail safe
+  isPlayerNearby := false;
   MAX_ATTEMPTS := 10;
   PLAYER_INTERFERENCE := 5;
 
@@ -96,9 +98,10 @@ procedure checkAreaForPlayers();
 begin
   if Chat.FindMessageLine('Someone else is fighting that.') then
   begin
-
+    isPlayerNearby := true;
+    Writeln("[" + timeElapsed +"]: There are players in your area. idling for " + toStr(playerSensedIdling) + " seconds");
+    Sleep(playerSensedIdling * 1000);
   end;
-    writeln("There are players in your area");
 end;
 
 procedure checkCombatState();
@@ -178,7 +181,6 @@ end;
 procedure lootItems();
 var
   i : Integer;
-  coords: TPointArray;
   atpa:   T2DPointArray;
 begin
    Sleep(1000);
