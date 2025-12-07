@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<workspaceFilter version="1.0">
-    <filter root="/apps/runescape/clientlibs"/>
-    <filter root="/apps/runescape/components"/>
-    <filter root="/apps/runescape/i18n"/>
-</workspaceFilter>

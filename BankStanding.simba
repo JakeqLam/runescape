@@ -121,26 +121,26 @@ end;
 
 procedure makeItems();
 begin
-  //writeln(Inventory.GetSelected());
-
   if not (Inventory.IsOpen) then
   begin
     writeln("["+timeElapsed+"]:" + " Opening Inventory");
     Inventory.Open();
   end;
-
   if Make.IsOpen() then
     Make.Select(makeAllInterface,QUANTITY_ALL);
-  Sleep(3000);
+
+  Sleep(2000);
   if not XPBar.EarnedXP() then
   begin
     if (Inventory.Combine(invOne, invTwo)) then
     begin
       writeln("["+timeElapsed+"]: "+"Combining [" + itemOne + "] with [" + itemTwo + "]");
-      Inc(actions);
 
       if Make.IsOpen() then
+      begin
         Make.Select(makeAllInterface,QUANTITY_ALL);
+        Bank.Hover();
+      end;
     end;
   end;
   Sleep(100,200);
@@ -153,7 +153,7 @@ begin
 
   if (itemOneCount < itemTwoMin) then
   begin
-    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemOne+"]");
+    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemOne+"]" + ". Banking...");
 
     Bank.Open();
     if(Bank.IsOpen()) then
@@ -169,7 +169,7 @@ begin
   end
   else if (itemTwoCount < itemTwoMin) then
   begin
-    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemTwo+"]");
+    writeln("["+timeElapsed+"]: "+"Ran out of ["+itemTwo+"]" + ". Banking...");
     Bank.Open();
 
     if(Bank.IsOpen()) then
@@ -195,6 +195,7 @@ begin
 
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   timer.Start();
+
   printProgReport();
 
   setupAntiBan();
@@ -204,6 +205,7 @@ begin
   Bank.Hover();
   while True do
   begin
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     if Minimap.CompassDegrees > 5 then
       Minimap.CompassDegrees := 60;
     Sleep(1000);

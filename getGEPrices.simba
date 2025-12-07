@@ -1,5 +1,6 @@
 {$I WaspLib/osrs.simba}
-
+uses
+  fpjson
 var
   baseURL: string := "https://prices.runescape.wiki/api/v1/osrs/latest?";
   json: String;
