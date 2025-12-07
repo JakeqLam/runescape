@@ -16,20 +16,22 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'TooManyYews';     //Username/Email
+  LOGIN_NAME  = 'WashUrRice';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
   //Mob Name
-  mobName     := "Cow";
-  food        := "Herring";
-  hpThreshold := 10;
+  mobName     := "Guard";
+  food        := "Lobster";
+  hpThreshold := 25;
   trainPrayer := true;
 
   lootList : TStringArray := ['Coins'];
-  anchorPt : TPoint      := [8948, 37266]; //fill this is with your reset anchor position
+  bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
+  anchorPt   : TPoint := [12852,36578];// bank location
 
 // ─────────────────────────────────────────────────────────────
+// script values
 // ─────────────────────────────────────────────────────────────
   //Login values
   profile : TProfile;
@@ -47,6 +49,29 @@ var
   timer  : TStopWatch;
   xp: Integer;
   hp : Integer;
+
+  //fail safe
+  MAX_ATTEMPTS := 10;
+  PLAYER_INTERFERENCE := 5;
+
+
+// ─────────────────────────────────────────────────────────────
+// Section: Setting up location and pathfinding
+// ─────────────────────────────────────────────────────────────
+
+procedure setupLocation();
+begin
+   //Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]); //lumbrdige
+   Map.Setup([ERSChunk.VARROCK]);//Varrock
+end;
+
+procedure navigateToBank();
+begin
+  Map.Walker.WebWalk(bankPt);
+  Bank.Open();
+  Bank.DepositInventory();
+  Bank.Withdraw(food);
+end;
 
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
@@ -67,9 +92,18 @@ end;
 // ─────────────────────────────────────────────────────────────
 // Section: State Helpers
 // ─────────────────────────────────────────────────────────────
+procedure checkAreaForPlayers();
+begin
+  if Chat.FindMessageLine('Someone else is fighting that.') then
+  begin
+
+  end;
+    writeln("There are players in your area");
+end;
 
 procedure checkCombatState();
 begin
+  Sleep(2000);
   xp := XPBar.Read();
   if not XPBar.EarnedXP() then
   begin
@@ -108,6 +142,7 @@ begin
     if not Consumables.Has(ERSConsumable.FOOD) then
     begin
       WriteLn("["+timeElapsed+"]: "+'No food found (e.g., Lobster).');
+      navigateToBank();
     end;
 
     hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
@@ -188,6 +223,7 @@ begin
         begin
             if not isAttacking then
             begin
+              checkAreaForPlayers();
               WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
               Mouse.Click(EMouseButton.LEFT);
               isAttacking := true;
@@ -234,7 +270,7 @@ begin
   printProgReport();
   setupAntiBan();
 
-  Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID,ERSChunk.VARROCK]);
+  setupLocation();
   player := Map.Position(); //Player Position
   writeln("[" + timeElapsed +"]: " + "Initializing at Position: " + toStr(Map.Position()));
 

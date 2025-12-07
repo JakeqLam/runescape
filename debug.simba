@@ -1,9 +1,16 @@
 {$I WaspLib/osrs.simba}
+
+var
+  bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
+  anchorPt   : TPoint := [12848,36582];// bank location
 begin
   Map.Setup([ERSChunk.VARROCK]);
-  Bank.open();
+  writeln Map.Position();
+
+  //Map.Walker.WebWalk(bankPt);
+  //bank.Open();
 
 
-  Bank.SetQuantity(ERSItemQuantity.String2Quantity("2"));
-  Bank.
+  Map.Walker.WebWalk(anchorPt);
+
 end.
