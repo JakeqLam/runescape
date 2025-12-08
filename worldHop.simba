@@ -1,26 +1,68 @@
 {$I WaspLib/osrs.simba}
-{$DEFINE WL_DEBUG_UPTEXT}
-{$DEFINE WL_DEBUG_MOUSE}
-var
-  world : Integer;
 
+var
+  BestWorld: TWorldInfo;
+  worldTimer: TStopWatch;
+
+  profile: TProfile;
+
+
+  LOGIN_NAME  = 'LizAnya';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [302,303,304,404,379,380,437,436,435];
 
 Procedure setupLogin();
 begin
   profile.Name          := LOGIN_NAME;
-  profile.Username      := LOGIN_PASS;
-  profile.Password      := PPIN;
-  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+  profile.Username      := LOGIN_NAME;
+  profile.Password      := LOGIN_PASS;
+  profile.Pin           := PPIN;
+  profile.Worlds        := WORLDS;
+  Profiles.Add(LOGIN_NAME,LOGIN_NAME,LOGIN_PASS,PPIN,WORLDS);
+
 end;
 
-procedure init();
+procedure worldHop();
+var
+  randomWorld: Integer;
 begin
+   // Setup WorldFetcher with default settings
+  WorldFetcher.Setup();
 
+  // Fetch all available worlds
+  if WorldFetcher.Fetch(WORLDS) then
+  begin
+    WriteLn('Fetched ', Length(WorldFetcher.Worlds), ' specific worlds');
+    randomWorld := WORLDS[ Random( Length(WORLDS) ) ];
+
+    //switch to that world
+    Logout.Open();
+    if Logout.IsOpen() then
+    begin
+      writeln("Switching to World number: " + toStr(randomWorld));
+      Logout.Logout();
+      Sleep(1000);
+      LoginWorldSwitcher.WaitOpen(1000);
+      LoginWorldSwitcher.Switch(randomWorld);
+      Login.DoLogin(profile);
+      worldTimer.Reset();
+    end;
+  end;
+end;
+
+begin
+  worldTimer.Start();
   setupLogin();
 
-end;
+  while True do
+  begin
+    Sleep(1000);
+    writeln("timer: "+ toStr(worldTimer.Elapsed));
+    if worldTimer.Elapsed >= 1 * 15 * 1000 then
+    begin
+      worldHop();
 
-begin
-  init();
+    end;
+  end;
 end.
-

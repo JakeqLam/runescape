@@ -19,6 +19,7 @@ var
   LOGIN_NAME  = 'WashUrRice';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 371, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390];  //F2P
 
   //Mob Name
   mobName     := "Guard";
@@ -26,11 +27,12 @@ var
   hpThreshold := 25;
   trainPrayer := true;
 
-  lootList : TStringArray := ['Coins'];
+  lootList : TStringArray := ['Coins', 'Bones'];
   bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
   anchorPt   : TPoint := [12852,36578];// bank location
 
-  playerSensedIdling := 15;//seconds
+  playerSensedIdling := 3;//seconds
+  worldDuration      := 30;//minutes
 // ─────────────────────────────────────────────────────────────
 // script values
 // ─────────────────────────────────────────────────────────────
@@ -47,14 +49,82 @@ var
 
   //Reporting values
   timeElapsed: String;
-  timer  : TStopWatch;
+  timer,xpTimer,worldTimer  : TStopWatch;
   xp: Integer;
   hp : Integer;
 
   //fail safe
   isPlayerNearby := false;
   MAX_ATTEMPTS := 10;
-  PLAYER_INTERFERENCE := 5;
+  PLAYER_INTERRUPT: Integer;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ Mob Slayer ⚔️  ------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+// ─────────────────────────────────────────────────────────────
+// Asntiban management
+// ─────────────────────────────────────────────────────────────
+
+procedure setupAntiBan();
+begin
+
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+  Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.DoAntiban();
+end;
+
+procedure worldHop();
+var
+  randomWorld: Integer;
+begin
+   // Setup WorldFetcher with default settings
+  WorldFetcher.Setup();
+
+  // Fetch all available worlds
+  if WorldFetcher.Fetch(WORLDS) then
+  begin
+    WriteLn('Fetched ', Length(WorldFetcher.Worlds), ' specific worlds');
+    randomWorld := WORLDS[ Random( Length(WORLDS) ) ];
+
+    //switch to that world
+    Logout.Open();
+    if Logout.IsOpen() then
+    begin
+      writeln("Switching to World number: " + toStr(randomWorld));
+      Logout.Logout();
+      Sleep(1000);
+      LoginWorldSwitcher.WaitOpen(1000);
+      LoginWorldSwitcher.Switch(randomWorld);
+      Login.DoLogin(profile);
+      worldTimer.Reset();
+    end;
+  end;
+end;
 
 
 // ─────────────────────────────────────────────────────────────
@@ -94,13 +164,43 @@ end;
 // ─────────────────────────────────────────────────────────────
 // Section: State Helpers
 // ─────────────────────────────────────────────────────────────
+
+procedure xpFailSafe();
+begin
+  Sleep(1000);
+  xp := XPBar.Read();
+
+  if XPBar.WaitXP(600) then
+     xpTimer.Reset();
+
+  if xpTimer.Elapsed >= 10 * 60 * 1000 then
+  begin
+    Logout.Open();
+    Logout.Logout();
+    TerminateScript("Reason: No xp gained in the last 10 minutes");
+  end;
+end;
+
 procedure checkAreaForPlayers();
 begin
-  if Chat.FindMessageLine('Someone else is fighting that.') then
+  if not isAttacking then
   begin
-    isPlayerNearby := true;
-    Writeln("[" + timeElapsed +"]: There are players in your area. idling for " + toStr(playerSensedIdling) + " seconds");
-    Sleep(playerSensedIdling * 1000);
+    if Chat.GetMessage(0) = 'Someone else is fighting that.' then
+    begin
+      isPlayerNearby := true;
+      Writeln("[" + timeElapsed +"]: There are players in your area. idling for " + toStr(playerSensedIdling) + " seconds");
+      Sleep(playerSensedIdling * 1000);
+
+      if PLAYER_INTERRUPT = 15 then
+      begin
+        Writeln("[" + timeElapsed +"]: World is too crowded. Hopping worlds");
+        worldHop();
+        PLAYER_INTERRUPT := 0;
+      end;
+
+
+      inc(PLAYER_INTERRUPT);
+    end;
   end;
 end;
 
@@ -108,7 +208,7 @@ procedure checkCombatState();
 begin
   Sleep(2000);
   xp := XPBar.Read();
-  if not XPBar.EarnedXP() then
+  if not XPBar.WaitXP(600) then
   begin
     isAttacking := false;
     Writeln("[" + timeElapsed +"]: " + "No longer in combat");
@@ -118,21 +218,6 @@ begin
     isAttacking := true;
     //Writeln("[" + timeElapsed +"]: " + "Currently in combat");
   end;
-end;
-
-procedure setupAntiBan();
-begin
-
-  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
-  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
-  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
-  Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
-  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
-  Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
-
-  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  Antiban.AddBreak(ONE_MINUTE*90, ONE_MINUTE*10, 0.2, 0.0);  //Moderate break
-  Antiban.DoAntiban();
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -207,52 +292,37 @@ begin
       end;
     end;
     ChooseOption.Close();
+    printProgReport();
    end;
 end;
 
 //Get the closest mob and set the target
 procedure attackTarget();
 var
-  atpa:   T2DPointArray;
+  i: Integer;
+  atpa: T2DPointArray;
 begin
     Sleep(1500);
-
-    if mob.Find(atpa) then
+    for i := 0 to 4 do
     begin
-        mob.Hover();
-        //ShowOnTarget(mob);
-        if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
-        begin
-            if not isAttacking then
-            begin
-              checkAreaForPlayers();
-              WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
-              Mouse.Click(EMouseButton.LEFT);
-              isAttacking := true;
-            end;
-        end;
+      if mob.Find(atpa) then
+      begin
+          mob.Hover();
+          if MainScreen.IsUpText('Attack ' + mobName, False, 0.75, 100) then
+          begin
+              if not isAttacking then
+              begin
+                ShowOnTarget(mob);
+                WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
+                Mouse.Click(EMouseButton.LEFT);
+                checkAreaForPlayers();
+                isAttacking := true;
+
+              end;
+          end;
+      end;
+      Sleep(1000);
     end;
-    Sleep(1500);
-end;
-
-// ─────────────────────────────────────────────────────────────
-// Section: Reporting
-// ─────────────────────────────────────────────────────────────
-
-procedure printProgReport();
-begin
-  Writeln("");
-  Writeln("+ Mob Slayer ⚔️  ------------------+");
-  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
-  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
-  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
-  Writeln("+-------------------------------------+");
-  Writeln("");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
-  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("");
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -260,7 +330,7 @@ end;
 // ─────────────────────────────────────────────────────────────
 procedure init();
 var
-  i: Integer;
+  atmpt: Integer;
 begin
 
   setupLogin();
@@ -269,6 +339,7 @@ begin
 
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   timer.Start();
+  xpTimer.Start();
   printProgReport();
   setupAntiBan();
 
@@ -294,7 +365,16 @@ begin
   //Begin Loop
   while True do
   begin
+    Antiban.DoAntiban();
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+    xpFailSafe();
+
+    if worldTimer.Elapsed >= worldDuration * 60 * 1000 then
+    begin
+      printProgReport();
+      worldHop();
+    end;
+
     if not RSClient.IsLoggedIn then
       Login.DoLogin(profile);
 
@@ -315,21 +395,27 @@ begin
     //if you are out of combat and the Mob is dead. Move to the next target
     if not isAttacking then
     begin
-      Map.Walker.WalkBlind(anchorPt);
       lootItems();
 
-      for i := 0 to 4 do
+      for atmpt := 0 to MAX_ATTEMPTS do
       begin
-        writeln("["+timeElapsed+"]: "+"Looking for " + mobName + "'s position. Attempt: " + toStr(i));
-        if i = 4 then
+        if isAttacking then
+          break;
+        writeln("["+timeElapsed+"]: "+"Looking for " + mobName + "'s position. Attempt: " + toStr(atmpt));
+        if atmpt = MAX_ATTEMPTS then
         begin
-          Map.Walker.WalkBlind(anchorPt);
+          Map.Walker.WebWalk(anchorPt);
           Writeln("[" + timeElapsed +"]: " + "Could not find " + mobName +" , Walking to anchor coordinate: " + toStr(anchorPt));
           printProgReport();
         end;
+
+        if atmpt = 2 then
+          Minimap.CompassDegrees := 60;
+        if atmpt = 6 then
+          Minimap.CompassDegrees := 180;
+
         attackTarget();
-        if isAttacking then
-          break;
+        checkCombatState();
       end;
     end;
   end;

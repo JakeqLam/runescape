@@ -1,17 +1,35 @@
 {$I WaspLib/osrs.simba}
 
 var
-  bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
-  anchorPt   : TPoint := [12848,36582];// bank location
+
+  xpTimer: TStopWatch;
+
+  xp: Integer;
+
+procedure xpFailSafe();
+begin
+  Sleep(1000);
+  xp := XPBar.Read();
+
+  if XPBar.WaitXP(600) then
+     xpTimer.Reset();
+
+  if xpTimer.Elapsed >= 1 * 60 * 1000 then
+  begin
+    Logout.Open();
+
+    TerminateScript("Reason: No xp gained in the last 10 minutes");
+  end;
+end;
+
 begin
   Map.Setup([ERSChunk.VARROCK]);
-  writeln Map.Position();
 
-  Map.Walker.WebWalk(bankPt);
-  Bank.Open();
-  Bank.DepositInventory();
-  Bank.Withdraw("lobster");
-  Sleep(1000);
-  Map.Walker.WebWalk(anchorPt);
+
+  xpTimer.Start();
+  while true do
+  begin
+    xpFailSafe();
+  end;
 
 end.
