@@ -114,6 +114,9 @@ begin
       Sleep(1000);
       LoginWorldSwitcher.WaitOpen(1000);
       LoginWorldSwitcher.Switch(randomWorld);
+
+      if LoginWorldSwitcher.IsOpen() then
+          LoginWorldSwitcher.Close();
       Login.DoLogin(profile);
       worldTimer.Reset();
     end;

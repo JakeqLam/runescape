@@ -19,7 +19,7 @@ var
   LOGIN_NAME  = 'WashUrRice';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
-  WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 371, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390];  //F2P
+  WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 371, 379, 380, 382, 383, 384,455];  //F2P
 
   //Mob Name
   mobName     := "Guard";
@@ -32,7 +32,7 @@ var
   anchorPt   : TPoint := [12852,36578];// bank location
 
   playerSensedIdling := 3;//seconds
-  worldDuration      := 30;//minutes
+  worldDuration      := 10;//minutes
 // ─────────────────────────────────────────────────────────────
 // script values
 // ─────────────────────────────────────────────────────────────
@@ -77,8 +77,45 @@ begin
   Writeln("+------------ XP Gained --------------+");
   Writeln("");
 end;
+
 // ─────────────────────────────────────────────────────────────
-// Asntiban management
+// Section: Setting up location and pathfinding
+// ─────────────────────────────────────────────────────────────
+
+procedure setupLocation();
+begin
+   //Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]); //lumbrdige
+   Map.Setup([ERSChunk.VARROCK]);//Varrock
+end;
+
+procedure navigateToBank();
+begin
+  Map.Walker.WebWalk(bankPt);
+  Bank.Open();
+  Bank.DepositInventory();
+  Bank.Withdraw(food);
+end;
+
+
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_NAME;
+  profile.Password      := LOGIN_PASS;
+  profile.Pin         := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Antiban management
 // ─────────────────────────────────────────────────────────────
 
 procedure setupAntiBan();
@@ -120,45 +157,14 @@ begin
       Sleep(1000);
       LoginWorldSwitcher.WaitOpen(1000);
       LoginWorldSwitcher.Switch(randomWorld);
+      Sleep(2000);
+      if LoginWorldSwitcher.IsOpen() then
+          LoginWorldSwitcher.Close();
+
       Login.DoLogin(profile);
       worldTimer.Reset();
     end;
   end;
-end;
-
-
-// ─────────────────────────────────────────────────────────────
-// Section: Setting up location and pathfinding
-// ─────────────────────────────────────────────────────────────
-
-procedure setupLocation();
-begin
-   //Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]); //lumbrdige
-   Map.Setup([ERSChunk.VARROCK]);//Varrock
-end;
-
-procedure navigateToBank();
-begin
-  Map.Walker.WebWalk(bankPt);
-  Bank.Open();
-  Bank.DepositInventory();
-  Bank.Withdraw(food);
-end;
-
-// ─────────────────────────────────────────────────────────────
-// Section: Profile and time management
-// ─────────────────────────────────────────────────────────────
-Procedure endScript(Reason: string);
-begin
-  TerminateScript(Reason);
-end;
-
-Procedure setupLogin();
-begin
-  profile.Name          := LOGIN_NAME;
-  profile.Username      := LOGIN_PASS;
-  profile.Password      := PPIN;
-  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -197,7 +203,6 @@ begin
         worldHop();
         PLAYER_INTERRUPT := 0;
       end;
-
 
       inc(PLAYER_INTERRUPT);
     end;
