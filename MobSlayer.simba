@@ -16,23 +16,23 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
 
-  LOGIN_NAME  = 'WashUrRice';     //Username/Email
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
-  WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 371, 379, 380, 382, 383, 384,455];  //F2P
+  WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 379, 380, 382, 383, 384,455];  //F2P
 
   //Mob Name
-  mobName     := "Guard";
+  mobName     := "Cow";
   food        := "Lobster";
-  hpThreshold := 25;
-  trainPrayer := true;
+  hpThreshold := 5;
+  trainPrayer := false;
 
   lootList : TStringArray := ['Coins', 'Bones'];
   bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
-  anchorPt   : TPoint := [12852,36578];// bank location
+  anchorPt   : TPoint := [12808,37262];
 
   playerSensedIdling := 3;//seconds
-  worldDuration      := 10;//minutes
+  worldDuration      := 45;//minutes
 // ─────────────────────────────────────────────────────────────
 // script values
 // ─────────────────────────────────────────────────────────────
@@ -84,8 +84,9 @@ end;
 
 procedure setupLocation();
 begin
-   //Map.Setup([ERSChunk.LUMBRIDGE, ERSChunk.AL_KHARID]); //lumbrdige
-   Map.Setup([ERSChunk.VARROCK]);//Varrock
+   Map.Setup([ERSChunk.LUMBRIDGE]); //lumbrdige
+   //Map.Setup([ERSChunk.VARROCK]);//Varrock
+   //Map.Setup([ERSChunk.FALADOR]);
 end;
 
 procedure navigateToBank();
@@ -235,7 +236,7 @@ begin
     if not Consumables.Has(ERSConsumable.FOOD) then
     begin
       WriteLn("["+timeElapsed+"]: "+'No food found (e.g., Lobster).');
-      navigateToBank();
+      //navigateToBank();
     end;
 
     hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
@@ -320,7 +321,7 @@ begin
                 ShowOnTarget(mob);
                 WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
                 Mouse.Click(EMouseButton.LEFT);
-                checkAreaForPlayers();
+                //checkAreaForPlayers();
                 isAttacking := true;
 
               end;
@@ -381,7 +382,10 @@ begin
     end;
 
     if not RSClient.IsLoggedIn then
+    begin
       Login.DoLogin(profile);
+      xpTimer.Reset();
+    end;
 
     Antiban.DoAntiban();
     Sleep(1500,2000);
@@ -400,7 +404,8 @@ begin
     //if you are out of combat and the Mob is dead. Move to the next target
     if not isAttacking then
     begin
-      lootItems();
+
+      //lootItems();
 
       for atmpt := 0 to MAX_ATTEMPTS do
       begin

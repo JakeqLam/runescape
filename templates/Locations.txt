@@ -1,0 +1,16 @@
+  bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
+  anchorPt   : TPoint := [12848,36582];// bank location
+
+
+  //lumbrdige cows
+  anchorPt   : TPoint := [12808,37262];
+
+  //Falador knights
+  anchorPt   : TPoint := [11888,37058];
+  bankPt  : TPoint := [12332, 37366];
+
+
+  //edgeville
+  anchorPt   : TPoint := [12504,36566];
+
+

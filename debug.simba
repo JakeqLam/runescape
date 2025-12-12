@@ -1,9 +1,9 @@
 {$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
 
-var
-  world: TRSWorld;
+var p: TPoint;
 begin
-
-    WorldSwitcher.WaitSwitch(WorldSwitcher.World);
-
+     Map.Setup([ERSChunk.FALADOR]);
+    writeln Map.Position();
 end.

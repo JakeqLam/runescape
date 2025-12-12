@@ -1,0 +1,37 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_Debug_MOUSE}
+
+var
+  fish : String := "shrimp";
+  i : Integer;
+  player: TPoint;
+
+  fishingSpots: TPointArray := [[12980,37818],[12984,37810]];
+  quads: TQuadArray;
+  quad: TQuad;
+  angle: Single;
+  fishingSpot: TRSObject;
+
+
+
+
+begin
+    Map.Setup([ERSChunk.LUMBRIDGE]);
+    writeln Map.Position();
+    player := Map.Position();
+    fishingSpot := TRSObject.Create(@Map.Walker,[1,1,7],fishingSpots, ["Net Fishing Spot"]);
+    fishingSpot.Finder.Colors += [$988D84, 0.000, EColorSpace.HSL, [1.000, 1.000, 1.000]];
+    while True do
+    begin
+      writeln Map.Position();
+      Minimap.CompassDegrees := 0;
+      ShowOnTarget(fishingSpot);
+      Sleep(2000);
+      fishingSpot.Hover();
+      if MainScreen.IsUpText('Net Fishing spot ', False, 0.75, 100) then
+      begin
+        writeln ("spot is active");
+      end;
+    end;
+end.
