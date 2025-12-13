@@ -4,7 +4,19 @@
 
 var
   location : String := "lower";
-  miningSpots : TPointArray := [[15004,27842],[14996,27846]];
+  miningSpots : TPointArray := [
+    [15004,27842],[14996,27846],[14988,27842],
+    [15004,27838],[15020,27830],[15024,27830]
+  ];
+
+
+  //dropoff  {X = 14996, Y = 27742}
+  //wheel 2 {X = 14964, Y = 27778}
+  //wheel 1 {X = 14964, Y = 27754}
+
+  //bank {X = 15040, Y = 27766}
+  //bankdeposit   {X = 15032, Y = 27774}
+   // ore sack   {X = 14996, Y = 27794}
   miningSpot: TRSObject;
   atpa:   T2DPointArray;
 begin
