@@ -4,6 +4,6 @@
 
 var p: TPoint;
 begin
-     Map.Setup([ERSChunk.FALADOR]);
+     Map.Setup([ERSChunk.MOTHERLOADE_MINE]);
     writeln Map.Position();
 end.

@@ -1,0 +1,24 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+var
+  location : String := "lower";
+  miningSpots : TPointArray := [[15004,27842],[14996,27846]];
+  miningSpot: TRSObject;
+  atpa:   T2DPointArray;
+begin
+  Map.Setup([ERSChunk.MOTHERLOADE_MINE]);
+  writeln Map.Position();
+
+  miningSpot := TRSObject.Create(@Map.Walker,[1,1,7],miningSpots, ["Ore vein"]);
+  miningSpot.Finder.Colors += [$7C7D85, 0.000, EColorSpace.HSL, [1.000, 1.000, 1.000]];
+
+
+  while true do
+  begin
+    if miningSpot.Find(atpa) then
+      ShowOnTarget(miningSpot);
+  end;
+
+end.
