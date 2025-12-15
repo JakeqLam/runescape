@@ -1,0 +1,316 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+(******************************************************************************
+* Project: Gemstone Crab Fighter
+* Author : Jake Lam
+* Notes  : Needs to be started at the Gemstone Crab Mining site
+******************************************************************************)
+
+var
+// ─────────────────────────────────────────────────────────────
+// Section: Gemstone Crab Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
+
+  LOGIN_NAME        = 'WashUrRice';     //Username/Email
+  LOGIN_PASS        = '@Brad8928828';  //Password
+  PPIN              = '';              //Bank pin
+
+//Login values
+  profile : TProfile;
+
+  northCrab,eastCrab,westCrab,eastCave,westCave,northCave : TRSObject;
+
+  northCrabPt  : TPoint := [5092, 37742]; //Top side
+  northCavePt : Tpoint := [5108, 37754];   //Top side crawl space
+
+  eastCrabPt  : TPoint := [5412, 37980]; //Right side
+  eastCavePt  : TPoint := [5408, 37938]; //Right side crawl space
+
+  westCavePt  : TPoint := [4984,38282]; //Left side crawl space
+  westCrabPt : TPoint := [4968,38266]; //Left side
+
+  me : TPoint;
+  crabLocation: String;
+  isAttacking: Boolean;
+  isCrabDead: Boolean;
+
+  //Reporting values
+  timeElapsed: String;
+  timer  : TStopWatch;
+  xp: Integer;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  //profile.World         := world;      // 0 = let client pick; or set a world number
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+procedure setupAntiBan();
+begin
+
+  //Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  //Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
+  //Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+  //Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
+
+  //breaks
+  //Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*20, 0.2, 0.0);  //Moderate break
+  Antiban.DoAntiban();
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ 💎 Gemstone Crab Fighter 🦀 --------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure attackCrab();
+begin
+
+    if crabLocation = "north" then
+    begin
+      ShowOnTarget(northCrab);
+      northCrab.Hover();
+      if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+      begin
+          WriteLn("[" + timeElapsed +"]: "+ 'Found Gemstone Kreb!, Attacking now ⚔️');
+          northCrab.Click();
+      end;
+    end
+    else if crabLocation = "west" then
+    begin
+      ShowOnTarget(westCrab);
+      westCrab.Hover();
+      if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+      begin
+          WriteLn("[" + timeElapsed +"]: "+ 'Found Gemstone Kreb!, Attacking now ⚔️');
+          westCrab.Click();
+      end;
+    end
+    else if crabLocation = "east" then
+    begin
+      ShowOnTarget(eastCrab);
+      eastCrab.Hover();
+      if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+      begin
+          WriteLn("[" + timeElapsed +"]: "+ 'Found Gemstone Kreb!, Attacking now ⚔️');
+          eastCrab.Click();
+      end;
+    end;
+end;
+
+procedure goToNextCrab();
+begin
+    writeln("[" + timeElapsed +"]: " + "Moving to the next location");
+
+    if crabLocation = "north" then
+    begin
+      northCave.Hover();
+      if MainScreen.IsUpText('Crawl-through cave', False, 0.75, 100) then
+      begin
+        northCave.WalkClick();
+        ShowOnTarget(northCave); //adjust
+      end;
+    end
+    else if  crabLocation = "east" then
+    begin
+      eastCave.Hover();
+      if MainScreen.IsUpText('Crawl-through cave', False, 0.75, 100) then
+      begin
+        eastCave.WalkClick();
+        ShowOnTarget(eastCave);
+      end;
+    end
+    else if crabLocation = "west" then
+    begin
+
+      westCave.Hover();
+      if MainScreen.IsUpText('Crawl-through cave', False, 0.75, 100) then
+      begin
+        westCave.WalkClick();
+        ShowOnTarget(westCave); //adjust
+      end;
+    end;
+
+    Sleep(2000);
+end;
+//Pathfinding to closest crab
+procedure setCrabLocation();
+var
+    dW, dE, dN: Double;
+begin
+    me := Map.Position(); //Player
+
+    //caculate the players distance to each of the three mining sites
+    dW := me.DistanceTo(westCrabPt);
+    dE := me.DistanceTo(eastCrabPt);
+    dN := me.DistanceTo(northCrabPt);
+
+    //get the closest mining site and set the crab and location
+    if (dW <= dE) and (dW <= dN) then
+    begin
+      Minimap.CompassDegrees:= 180;
+      crabLocation := "west";
+    end
+    else if (dE <= dN) then
+    begin
+      Minimap.CompassDegrees:= 0;
+      crabLocation := "east";
+    end
+    else
+    begin
+      Minimap.CompassDegrees:= 90;
+      crabLocation := "north";
+    end;
+
+    Sleep(500);
+end;
+
+
+// ─────────────────────────────────────────────────────────────
+// Section: State Helpers
+// ─────────────────────────────────────────────────────────────
+procedure checkCombatState();
+begin
+  xp := XPBar.Read();
+  if not XPBar.WaitXP(5000) then
+  begin
+    isAttacking := false;
+    writeln("[" + timeElapsed +"]: " + "No longer in combat");
+  end
+  else
+  begin
+    isAttacking := true;
+  end;
+end;
+
+procedure checkCrabState();
+var
+  i:Integer;
+begin
+  for i:=0 to 5 do
+  begin
+    Sleep(1500);
+    if crabLocation = "north" then
+    begin
+     Minimap.CompassDegrees:= 0;
+     northCrab.Hover();
+     if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+     begin
+       isCrabDead := false;
+     end
+     else
+     begin
+       isCrabDead := true;
+       break;
+     end;
+    end
+    else if crabLocation = "west" then
+    begin
+      Minimap.CompassDegrees:= 180;
+      westCrab.Hover();
+      if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+      begin
+       isCrabDead := false;
+      end else
+     begin
+       isCrabDead := true;
+       break;
+     end;
+    end
+    else if crabLocation = "east" then
+    begin
+      Minimap.CompassDegrees:= 90;
+      eastCrab.Hover();
+      if MainScreen.IsUpText('Attack Gemstone Crab', False, 0.75, 100) then
+      begin
+        isCrabDead := false;
+      end else
+      begin
+        isCrabDead := true;
+        break;
+      end;
+    end;
+  end;
+    if isCrabDead then
+      writeln("[" + timeElapsed +"]: " + "Crab is dead");
+end;
+//main
+begin
+  setupLogin();
+  if (not RSClient.IsLoggedIn) then
+    Login.DoLogin(profile);
+  timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+  timer.Start();
+  //printProgReport();
+  Map.Setup([Chunk(Box(19,49,21,47), 0)]); //Gemstone crab locations in ttlai forest
+  me := Map.Position(); //Player
+
+  setupAntiBan();
+
+  //crab
+  northCrab := TRSObject.Create(@Map.Walker,[4,4,4], [northCrabPt], ["Gemstone Crab"]);
+  eastCrab := TRSObject.Create(@Map.Walker,[4,4,4], [eastCrabPt], ["Gemstone Crab"]);
+  westCrab := TRSObject.Create(@Map.Walker,[4,4,4], [westCrabPt], ["Gemstone Crab"]);
+
+  //cave
+  eastCave := TRSObject.Create(@Map.Walker,[1,1,7], [eastCavePt], ["Cave"]);
+  westCave := TRSObject.Create(@Map.Walker,[1,1,7], [westCavePt], ["Cave"]);
+  northCave := TRSObject.Create(@Map.Walker,[1,1,7], [northCavePt], ["Cave"]);
+
+  while True do
+  begin
+    Sleep(2000);
+    if Chat.LeveledUp() then
+    begin
+      Writeln("[" + timeElapsed +" ]: " + "Closing chat dialog");
+      Chat.Continue();
+    end;
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+
+    setCrabLocation();
+    Antiban.DoAntiban();
+    if not isAttacking then
+    begin
+      attackCrab();
+      checkCrabState();
+      if isCrabDead then
+      begin
+        goToNextCrab();
+        Sleep(2000);
+        printProgReport();
+      end;
+    end;
+    checkCombatState();
+
+  end;
+end.

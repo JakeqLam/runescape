@@ -4,33 +4,190 @@
 
 var
   location : String := "lower";
-  miningSpots : TPointArray := [
-    [15004,27842],[14996,27846],[14988,27842],
-    [15004,27838],[15020,27830],[15024,27830]
+  miningTpa : TPointArray := [
+    [15004,27842],[14996,27846],[14988,27846],
+    [15008,27842],[15020,27834],[15024,27834]
   ];
+  mininglocation: TPoint:= [14996,27830];
+  bankingLocation: TPoint := [15032,27766];
 
 
-  //dropoff  {X = 14996, Y = 27742}
-  //wheel 2 {X = 14964, Y = 27778}
-  //wheel 1 {X = 14964, Y = 27754}
+  oreSackPt: TPoint := [14992,27794];
+  bankDepositPt: TPoint:= [15036,27774];
+  bankChestPt: TPoint:= [15044,27766];
+  hopperPt: TPoint := [14992, 27742];
 
-  //bank {X = 15040, Y = 27766}
-  //bankdeposit   {X = 15032, Y = 27774}
-   // ore sack   {X = 14996, Y = 27794}
-  miningSpot: TRSObject;
+  miningSpots: TRSObjectArray;
+  wheel1,wheel2,bankChest,bankDeposit,oreSack,hopper: TRSObject;
+
   atpa:   T2DPointArray;
+  isMining: Boolean := false;
+  hopTrips, sackTrips: Integer;
+
+  //Reporting values
+  timeElapsed: String;
+  timer,xpTimer,worldTimer  : TStopWatch;
+  xp: Integer;
+
+
+procedure initMiningSpots();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(miningTpa) do
+  begin
+    obj := TRSObject.Create(@Map.Walker,[1,1,7], [miningTpa[tp]], ["Ore vein"]);
+    miningSpots.Insert(obj,tp);
+  end;
+end;
+procedure initOreUnload();
+begin
+  hopper := TRSObject.Create(@Map.Walker,[1,1,7], [hopperPt], ["Hopper"]);
+  bankDeposit := TRSObject.Create(@Map.Walker,[1,1,7], [bankDepositPt], ["Bank deposit box"]);
+  bankChest := TRSObject.Create(@Map.Walker,[1,1,7], [bankChestPt], ["Bank chest"]);
+  oreSack := TRSObject.Create(@Map.Walker,[1,1,7], [oreSackPt], [" Sack"]);
+
+  //wheel1 := TRSObject.Create(@Map.Walker,[1,1,7], [hopperPt], ["Broken strut"]);
+
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Motherload Operations
+// ─────────────────────────────────────────────────────────────
+procedure findMiningSpots();
+var
+  i : Integer;
+begin
+  if not isMining then
+  begin
+    for i := 0 to High(miningTpa) do
+    begin
+      miningSpots[i].Hover();
+
+      if MainScreen.IsUpText('Ore vein', False, 0.75, 100) then
+      begin
+        //ShowOnTarget(miningSpots[i]);
+        Mouse.Click(EMouseButton.LEFT);
+        writeln ("Found Ore vein, Mining ore ⛏  ");
+        Sleep(2000,4000);
+        break;
+      end;
+    end;
+  end;
+end;
+
+procedure unloadSack();
+begin
+  //ShowOnTarget(oreSack);
+  oreSack.WalkClick();
+  Sleep(1500);
+
+  Map.Walker.WalkBlind(bankingLocation);
+
+  ShowOnTarget(bankChest);
+  Sleep(1000);
+  bankChest.WalkInteract(['use Bank chest']);
+  Sleep(2000);
+  if Bank.IsOpen() then
+  begin
+    Bank.DepositInventory();
+    Sleep(1000);
+  end;
+
+end;
+
+procedure unloadHopper();
+begin
+  writeln("Inventory is full, Unloading ore into hopper");
+  Map.Walker.WalkBlind([15004, 27758]);
+  hopper.Hover();
+  Mouse.Click(EMouseButton.LEFT);
+  Sleep(3000);
+  Map.Walker.WebWalk(miningLocation);
+end;
+
+procedure fixWheel();
+begin
+  writeln("Fixing Wheel");
+end;
+
+procedure checkSackStatus();
+begin
+  Chat.Continue();
+  if Chat.ContainsMessage("Some ore is ready to be collected from the sack. The sack is now full.") then
+  begin
+    writeln("Sack is full, unloading");
+    hopTrips := 4;
+  end;
+end;
+
+
+// ─────────────────────────────────────────────────────────────
+
+procedure checkMiningState();
+begin
+  xp := XPBar.Read();
+  if not XPBar.WaitXP(4500) then
+  begin
+    isMining := false;
+    Writeln("[" + timeElapsed +"]: " + "No longer mining");
+  end
+  else
+  begin
+    isMining := true;
+  end;
+end;
+
+procedure checkWheelSt();
+begin
+  writeln("Wheel is broken");
+end;
+
+
 begin
   Map.Setup([ERSChunk.MOTHERLOADE_MINE]);
-  writeln Map.Position();
 
-  miningSpot := TRSObject.Create(@Map.Walker,[1,1,7],miningSpots, ["Ore vein"]);
-  miningSpot.Finder.Colors += [$7C7D85, 0.000, EColorSpace.HSL, [1.000, 1.000, 1.000]];
+  initMiningSpots();
+  initOreUnload();
 
-
-  while true do
+  Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+  Inventory.Open();
+  Map.Walker.WebWalk(miningLocation);
+  while True do
   begin
-    if miningSpot.Find(atpa) then
-      ShowOnTarget(miningSpot);
+    Sleep(2000);
+    Minimap.CompassDegrees := 180;
+
+    if not Inventory.IsOpen then
+      Inventory.Open();
+
+    if Inventory.IsFull() then
+    begin
+      unloadHopper();
+      Inc(hopTrips);
+      writeln("Hopper trips made " + toStr(hopTrips));
+    end;
+    checkSackStatus();
+
+    if hopTrips = 4 then
+    begin
+      writeln("time to empty sack");
+      for sackTrips := 0 to 6 do
+      begin
+        writeln("Unloading trips made " + toStr(sackTrips));
+        unloadSack();
+      end;
+
+      writeln("Finished unloading ore from sack. Returning to mining");
+      hopTrips := 0;
+      Map.Walker.WebWalk(mininglocation);
+    end;
+
+    checkMiningState();
+    findMiningSpots();
+
   end;
 
 end.

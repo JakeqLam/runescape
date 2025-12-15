@@ -1,0 +1,42 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+var
+  mininglocation: TPoint:= [14996,27830];
+  bankingLocation: TPoint := [15032,27766];
+
+
+  oreSackPt: TPoint := [14992,27794];
+  bankDepositPt: TPoint:= [15036,27774];
+  bankChestPt: TPoint:= [15044,27766];
+  hopperPt: TPoint := [14992, 27742];
+
+
+    //wheel 2 {X = 14964, Y = 27778}
+  //wheel 1 {X = 14964, Y = 27754}
+
+  wheel1,wheel2,bankChest,bankDeposit,oreSack,hopper: TRSObject;
+  slots: TBoxArray;
+  i: Integer;
+
+
+begin
+     Map.Setup([ERSChunk.MOTHERLOADE_MINE]);
+
+
+     //wheel1 := TRSObject.Create(@Map.Walker,[1,1,7], [hopperPt], ["Broken strut"]);
+     //wheel1 := TRSObject.Create(@Map.Walker,[1,1,7], [hopperPt], ["Broken strut"]);
+
+     while true do
+     begin
+      Sleep(1000);
+
+      Inventory.Open();
+      for i:=0 to 6 do
+      begin
+        unloadSack();
+      end;
+     end;
+
+end.

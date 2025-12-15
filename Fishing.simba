@@ -3,35 +3,190 @@
 {$DEFINE WL_Debug_MOUSE}
 
 var
-  fish : String := "shrimp";
+// ─────────────────────────────────────────────────────────────
+// Section: Fishing Settings
+// ─────────────────────────────────────────────────────────────
+
+  fish : TStringArray := ["Raw anchovies","Raw shrimps"];
+
+// ─────────────────────────────────────────────────────────────
+// Section: Bankstander Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+
+// ─────────────────────────────────────────────────────────────
+  profile      : TProfile;
+
   i : Integer;
   player: TPoint;
+  fishSpotsTpa: TPointArray := [
+    [12344,37518],[12340,37510],[12340,37506]
+  ];
+  fishingSpots: TRSObjectArray;
+  anchorPt:     TPoint := [12348,37518];
+  bankPt:     TPoint := [12368,37450];
+  atpa:   T2DPointArray;
 
-  fishingSpots: TPointArray := [[12980,37818],[12984,37810]];
-  quads: TQuadArray;
-  quad: TQuad;
-  angle: Single;
-  fishingSpot: TRSObject;
+  isFishing: Boolean;
 
-
-
-
+    //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
 begin
-    Map.Setup([ERSChunk.LUMBRIDGE]);
-    writeln Map.Position();
-    player := Map.Position();
-    fishingSpot := TRSObject.Create(@Map.Walker,[1,1,7],fishingSpots, ["Net Fishing Spot"]);
-    fishingSpot.Finder.Colors += [$988D84, 0.000, EColorSpace.HSL, [1.000, 1.000, 1.000]];
-    while True do
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+
+procedure setupAntiBan();
+begin
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.DoAntiban();
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ Fishing Bot 🐟  ---------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure bankFish();
+var
+  i:Integer;
+begin
+   printProgReport();
+   writeln("["+timeElapsed+"]: "+"Inventory is full, banking");
+   Map.Walker.WebWalk(bankPt);
+   Bank.Open();
+   for i:=0 to High(fish) do
+   begin
+    Inventory.Items.Click(fish[i]);
+    Sleep(1500);
+   end;
+   Sleep(1000);
+   Bank.Close();
+   Map.Walker.WebWalk(anchorPt);
+end;
+
+
+procedure checkFishingState();
+begin
+  xp := XPBar.Read();
+  if not XPBar.WaitXP(15000) then
+  begin
+    isFishing := false;
+    Writeln("["+timeElapsed+"]: "+ "No longer fishing");
+  end
+  else
+  begin
+    isFishing := true;
+  end;
+end;
+
+procedure findFishingSpots();
+begin
+  for i:=0 to High(fishingSpots) do
+  begin
+    ShowOnTarget(fishingSpots[i]);
+    if fishingSpots[i].Find(atpa) then
     begin
-      writeln Map.Position();
-      Minimap.CompassDegrees := 0;
-      ShowOnTarget(fishingSpot);
-      Sleep(2000);
-      fishingSpot.Hover();
+      fishingSpots[i].Hover();
       if MainScreen.IsUpText('Net Fishing spot ', False, 0.75, 100) then
       begin
-        writeln ("spot is active");
+        writeln ("["+timeElapsed+"]: "+"Fishing Spot is active");
+        Mouse.Click(EMouseButton.LEFT);
+        break;
+      end;
+    end;
+  Sleep(2000);
+  end;
+end;
+
+//Create fishing spots with a color finder
+procedure initFishingSpots();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(fishSpotsTpa) do
+  begin
+    obj := TRSObject.Create(@Map.Walker,[1,1,7],[fishSpotsTpa[tp]], ["Net Fishing Spot"]);
+    obj.Finder.ColorClusters += [
+      [$989084, 0.932, EColorSpace.LCH, [1.663, 1.220, 0.119]],
+      [$CBC4C0, 3.820, EColorSpace.LCH, [0.422, 2.298, 0.281]],8
+    ];
+    fishingSpots.Insert(obj,tp);
+  end;
+end;
+begin
+    Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+    writeln Map.Position();
+    player := Map.Position();
+    initFishingSpots();
+    Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+    setupAntiban();
+    while True do
+    begin
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      Minimap.CompassDegrees := 0;
+      Sleep(5000);
+      ShowOnTarget(fishingSpots);
+      checkFishingState();
+
+      if not Inventory.isOpen() then
+        Inventory.Open();
+
+      if Inventory.IsFull() then
+      begin
+        bankFish();
+        findFishingSpots();
+      end;
+      Antiban.DoAntiban();
+
+      if not isFishing then
+      begin
+        Map.Walker.WebWalk(anchorPt);
+        findFishingSpots();
       end;
     end;
 end.

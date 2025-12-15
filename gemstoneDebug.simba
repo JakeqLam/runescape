@@ -1,0 +1,41 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+ var
+  eastCave: TRSObject;
+  eastCavePt  : TPoint := [5408, 37938]; //Right side crawl space
+  me:TPoint;
+  crabLocation: String := "east";
+begin
+    Map.Setup([Chunk(Box(19,49,21,47), 0)]); //Gemst
+
+    me := Map.Position(); //Player
+
+    //crab
+    //northCrab := TRSObject.Create(@Map.Walker,[4,4,4], [northCrabPt], ["Gemstone Crab"]);
+    //eastCrab := TRSObject.Create(@Map.Walker,[4,4,4], [eastCrabPt], ["Gemstone Crab"]);
+    //westCrab := TRSObject.Create(@Map.Walker,[4,4,4], [westCrabPt], ["Gemstone Crab"]);
+
+    //cave
+    eastCave := TRSObject.Create(@Map.Walker,[1,1,7], [eastCavePt], ["Cave"]);
+    //westCave := TRSObject.Create(@Map.Walker,[1,1,7], [westCavePt], ["Cave"]);
+    //northCave := TRSObject.Create(@Map.Walker,[1,1,7], [northCavePt], ["Cave"]);
+
+     while true do
+     begin
+        Sleep(2000);
+        writeln Map.Position();
+        if  crabLocation = "east" then
+        begin
+          eastCave.Hover();
+          if MainScreen.IsUpText('Crawl-through cave', False, 0.75, 100) then
+          begin
+            //eastCave.WalkClick();
+            ShowOnTarget(eastCave);
+          end;
+        end;
+     end;
+
+
+end.

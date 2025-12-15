@@ -2,8 +2,17 @@
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_DEBUG_MOUSE}
 
-var p: TPoint;
+ var
+  miningLocation: TPoint:= [14992,27830];
+  me:TPoint;
 begin
-     Map.Setup([ERSChunk.MOTHERLOADE_MINE]);
-    writeln Map.Position();
+    Map.Setup([ERSChunk.DRAYNOR_VILLAGE]); //Gemstone crab locations in ttlai forest
+     me := Map.Position(); //Player
+
+     while true do
+     begin
+     Sleep(2000);
+       writeln Map.Position();
+     end;
+
 end.
