@@ -104,7 +104,7 @@ begin
    end;
    Sleep(1000);
    Bank.Close();
-   Map.Walker.WebWalk(anchorPt);
+
 end;
 
 
@@ -179,7 +179,7 @@ begin
       if Inventory.IsFull() then
       begin
         bankFish();
-        findFishingSpots();
+        isFishing := false;
       end;
       Antiban.DoAntiban();
 
