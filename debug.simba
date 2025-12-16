@@ -6,7 +6,7 @@
   miningLocation: TPoint:= [14992,27830];
   me:TPoint;
 begin
-    Map.Setup([ERSChunk.DRAYNOR_VILLAGE]); //Gemstone crab locations in ttlai forest
+    Map.Setup([ERSChunk.EDGEVILLE,ERSChunk.VARROCK]);
      me := Map.Position(); //Player
 
      while true do

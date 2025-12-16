@@ -1,73 +1,32 @@
-  //template
-  { itemOne := "";
-  itemOneQuantity := "";
-  itemOneMin := "";
-
-  itemTwo := "";
-  itemTwoQuantity := "";
-  itemTwoMin := "";
-
-  makeAllInterface := "";
-  }
-
-  //UltraCompost
-  itemOne          := "Volcanic ash";
-  itemOneQuantity  := 1;
+  itemOne          := "Yew Logs";
+  itemOneQuantity  := 27;
   itemOneMin       := 1;
 
-  itemTwo          := "Super compost";
-  itemTwoQuantity  := 27;
-  itemTwoMin       := 1;
-
-  makeAllInterface := "Ultracompost";
-  itemDeposit :=   "Ultracompost";
-
-//Headless Arrows
-itemOne          := "Feather";
-itemOneQuantity  := 1;
-itemOneMin       := 1;
-
-itemTwo          := "Arrow shaft";
-itemTwoQuantity  := 1;
-itemTwoMin       := 1;
-
-makeAllInterface := "Headless Arrow";
-
-
-
-//Unpowered staff orbs
-itemOne          := "Glassblowing pipe";
-itemOneQuantity  := 1;
-itemOneMin       := 1;
-
-itemTwo          := "Molten glass";
-itemTwoQuantity  := 27;
-itemTwoMin       := 1;
-
-makeAllInterface := "Unpowered staff orb";
-
-
-
-//firemaking
-  itemOne          := "Tinderbox";
-  itemOneQuantity  := 1;
-  itemOneMin       := 1;
-
-  itemTwo          := "Maple logs";
-  itemTwoQuantity  := 27;
-  itemTwoMin       := 1;
-
-  makeAllInterface := "";
-  itemDeposit :=   "";
-
-  //unstrung yew bows
-  itemOne          := "Knife";
-  itemOneQuantity  := 1;
-  itemOneMin       := 1;
-
-  itemTwo          := "Yew logs";
-  itemTwoQuantity  := 27;
+  itemTwo          := "Knife";
+  itemTwoQuantity  := 1;
   itemTwoMin       := 1;
 
   makeAllInterface := "Yew longbow";
-  itemDeposit      := "Yew longbow (u)";
+  itemResult := "Yew longbow (u)";
+
+
+
+
+
+
+
+
+
+
+
+
+  itemOne          := "Yew Logs";
+  itemOneQuantity  := 27;
+  itemOneMin       := 1;
+
+  itemTwo          := "Knife";
+  itemTwoQuantity  := 1;
+  itemTwoMin       := 1;
+
+  makeAllInterface := "Yew longbow";
+  itemResult := "Yew longbow (u)";

@@ -7,7 +7,8 @@ var
 // Section: Fishing Settings
 // ─────────────────────────────────────────────────────────────
 
-  fish : TStringArray := ["Raw anchovies","Raw shrimps"];
+  //fish : TStringArray := ["Raw anchovies","Raw shrimps"];  //Draynor Village
+  fish : TStringArray := ["Raw trout","Raw salmon"];  //Barbarian Village
 
 // ─────────────────────────────────────────────────────────────
 // Section: Bankstander Settings
@@ -22,12 +23,10 @@ var
 
   i : Integer;
   player: TPoint;
-  fishSpotsTpa: TPointArray := [
-    [12344,37518],[12340,37510],[12340,37506]
-  ];
+  fishSpotsTpa: TPointArray;
   fishingSpots: TRSObjectArray;
-  anchorPt:     TPoint := [12348,37518];
-  bankPt:     TPoint := [12368,37450];
+  anchorPt:     TPoint;
+  bankPt:     TPoint;
   atpa:   T2DPointArray;
 
   isFishing: Boolean;
@@ -37,6 +36,27 @@ var
   timer,xpTimer: TStopWatch;
   xp           : Integer;
   actions      : Integer;
+
+//Settings
+
+Procedure setupLocation();
+begin
+  writeln("setting up location");
+  //Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+  //anchorPt:= [12348,37518];
+  //bankPt  := [12368,37450];
+  //fishSpotsTpa:= [[12344,37518],[12340,37510],[12340,37506]];
+
+  //Barbarian Outpost fishing
+  Map.Setup([ERSChunk.EDGEVILLE,ERSChunk.VARROCK]);
+  anchorPt:= [12436,36698];
+  bankPt  := [12740,36686];
+  fishSpotsTpa := [[12440,36698],[12440,36702],[12440,36694],[12440,36706],[12440,36710],
+  [12416,36734],[12416,36730]];
+
+end;
+
+
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
 // ─────────────────────────────────────────────────────────────
@@ -126,16 +146,14 @@ procedure findFishingSpots();
 begin
   for i:=0 to High(fishingSpots) do
   begin
-    ShowOnTarget(fishingSpots[i]);
-    if fishingSpots[i].Find(atpa) then
+    fishingSpots[i].Hover();
+    if MainScreen.IsUpText('Net Fishing spot ', False, 0.75, 100) then
     begin
-      fishingSpots[i].Hover();
-      if MainScreen.IsUpText('Net Fishing spot ', False, 0.75, 100) then
-      begin
-        writeln ("["+timeElapsed+"]: "+"Fishing Spot is active");
-        Mouse.Click(EMouseButton.LEFT);
-        break;
-      end;
+      writeln ("["+timeElapsed+"]: "+"Fishing Spot is active");
+      Mouse.Click(EMouseButton.LEFT);
+      isFishing:= true;
+      ShowOnTarget(fishingSpots[i]);
+      break;
     end;
   Sleep(2000);
   end;
@@ -158,13 +176,22 @@ begin
     fishingSpots.Insert(obj,tp);
   end;
 end;
+
+procedure init();
+var
+  i:Integer;
 begin
-    Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+    setupLocation();
+    setupLogin();
     writeln Map.Position();
     player := Map.Position();
     initFishingSpots();
     Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
     setupAntiban();
+
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+    timer.Start();
+
     while True do
     begin
       timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
@@ -186,7 +213,20 @@ begin
       if not isFishing then
       begin
         Map.Walker.WebWalk(anchorPt);
-        findFishingSpots();
+        for i:=0 to 10 do
+        begin
+          findFishingSpots();
+          if i = 5 then
+            Map.Walker.WebWalk( [12412,36734]);
+          if isFishing = true then
+            break;
+          if Inventory.IsFull() then
+            break;
+        end;
       end;
     end;
+end;
+
+begin
+    init();
 end.
