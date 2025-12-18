@@ -1,0 +1,170 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+
+ var
+  me: TPoint;
+  plant: String:= "Golovanova";
+  anchorPt: TPoint:= [7316,36478];
+
+  //tithe farm plots
+  //farmTpa: TPointArray:= [plot1];
+  plotTpa: TPointArray:=[
+   [7324,36474],[7324,36462],[7324,36450],[7324,36438] //plot1
+  ,[7304,36438],[7304,36450],[7304,36462],[7304,36474]  //plot2
+  ];
+  waterBarrel : TRSObject;
+
+  farmPlots: TRSObjectArray;
+
+//Create fishing spots with a color finder
+procedure initFarmPlots();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(plotTpa) do
+  begin
+    obj := TRSObject.Create(@Map.Walker,[1,1,7],[plotTpa[tp]], ["Water "+plant+ " seedling"]);
+    farmPlots.Insert(obj,tp);
+  end;
+end;
+
+procedure waterPlots();
+var
+  i:Integer;
+  retry:Integer;
+begin
+  for i :=0 to 7 do
+  begin
+    Minimap.CompassDegrees:=0;
+    Sleep(1000);
+    ShowOnTarget(farmPlots[i]);
+    writeln("Attempting to water plant " + toStr(i));
+    for retry:=0 to 3 do
+    begin
+      farmPlots[i].Hover();
+      if MainScreen.IsUpText('Water' + plant + ' plant', False, 0.75, 100) then
+      begin
+        farmPlots[i].Hover();
+        Mouse.Click(EMouseButton.LEFT);
+        writeln("Successfully Watered "+plant);
+        Sleep(1200);
+        break;
+      end;
+      Sleep(1500);
+    end;
+  end;
+end;
+
+procedure harvestPlots();
+var
+  i:Integer;
+  retry:Integer;
+begin
+  for i :=1 to 8 do
+  begin
+    Minimap.CompassDegrees:=0;
+    Sleep(1000);
+    ShowOnTarget(farmPlots[i]);
+    writeln("Attempting to harvest plant " + toStr(i));
+    for retry:=0 to 3 do
+    begin
+      farmPlots[i].Hover();
+      if MainScreen.IsUpText('Harvest ' + plant + ' plant', False, 0.75, 100) then
+      begin
+        farmPlots[i].Hover();
+        Mouse.Click(EMouseButton.LEFT);
+        writeln("Successfully Harvested "+plant);
+        Sleep(1200);
+        break;
+      end;
+      Sleep(1500);
+    end;
+  end;
+end;
+
+procedure plantSeeds();
+var
+  i:Integer;
+  retry:Integer;
+begin
+ for i :=1 to 8 do
+ begin
+  writeln("Attempting to plant seed " + toStr(i));
+  Sleep(1000);
+  ShowOnTarget(farmPlots[i]);
+
+  for retry:=0 to 3 do
+  begin
+    Inventory.Items.Click(plant+" seed");
+    farmPlots[i].Hover();
+    Sleep(1000);
+    Mouse.Click(EMouseButton.LEFT);
+    Sleep(1500);
+    farmPlots[i].Hover();
+    if MainScreen.IsUpText('Water ' + plant + ' seed', False, 0.75, 100) then
+    begin
+      Mouse.Click(EMouseButton.LEFT);
+      break;
+    end;
+    Sleep(1500);
+  end;
+ end;
+end;
+
+procedure init();
+var
+  i:Integer;
+begin
+  Map.Setup([ERSChunk.TITHE_FARM]);
+  me := Map.Position(); //Player
+   setupLogin();
+  waterBarrel := TRSObject.Create(@Map.Walker,[1,1,7],[[7292, 36482]], ["Water Barrel"]);
+  initFarmPlots();
+  ShowOnTarget(farmPlots);
+  Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+  Inventory.Open();
+  Sleep(1000);
+
+  Map.Walker.WebWalk(anchorPt);
+  while true do
+  begin
+    if not Inventory.IsOpen then
+      Inventory.Open();
+    writeln("Beginning planting phase for " + plant + " seeds");
+    plantSeeds();
+    Sleep(2000);
+    Map.Walker.WebWalk(anchorPt);
+
+
+    Sleep(5000);
+    writeln("Beginning Watering phase for " + plant + " plants");
+    for i:= 1 to 2 do
+    begin
+      writeln("Watering phase " + toStr(i));
+      waterPlots();
+      Sleep(2000);
+      Map.Walker.WebWalk(anchorPt);
+      Sleep(16000);
+    end;
+
+    writeln("Beginning Harvesting phase for " + plant + " plants");
+    harvestPlots();
+
+    ShowOnTarget(waterBarrel);
+    writeln("Completed a round of farming, refilling watering can");
+    Map.Walker.WebWalk([7292, 36486]);
+    Inventory.Items.Click("Watering can");
+    waterBarrel.Hover();
+    Sleep(1500);
+    Mouse.Click(EMouseButton.LEFT);
+    Sleep(1500);
+    Map.Walker.WebWalk(anchorPt);
+  end;
+end;
+
+begin
+  init();
+end.

@@ -2,17 +2,22 @@
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_DEBUG_MOUSE}
 
- var
-  miningLocation: TPoint:= [14992,27830];
-  me:TPoint;
-begin
-    Map.Setup([ERSChunk.EDGEVILLE,ERSChunk.VARROCK]);
-     me := Map.Position(); //Player
+var
 
-     while true do
-     begin
-     Sleep(2000);
-       writeln Map.Position();
-     end;
+  me:TPoint;
+
+  waterBarrel : TRSObject;
+begin
+    waterBarrel := TRSObject.Create(@Map.Walker,[1,1,7],[[7292, 36490]], ["Water Barrel"]);
+    Map.Setup([ERSChunk.TITHE_FARM]);
+
+    ShowOnTarget(waterBarrel);
+    writeln("Completed a round of farming, refilling can");
+    Map.Walker.WebWalk([7292, 36486]);
+    Inventory.Items.Click("Watering can");
+    waterBarrel.Hover();
+    Sleep(1500);
+    Mouse.Click(EMouseButton.LEFT);
+    Sleep(1500);
 
 end.

@@ -30,3 +30,16 @@
 
   makeAllInterface := "Yew longbow";
   itemResult := "Yew longbow (u)";
+
+
+
+    itemOne          := "Magic logs";
+  itemOneQuantity  := 27;
+  itemOneMin       := 1;
+
+  itemTwo          := "Knife";
+  itemTwoQuantity  := 1;
+  itemTwoMin       := 1;
+
+  makeAllInterface := "Magic longbow";
+  itemResult := "Magic longbow (u)";

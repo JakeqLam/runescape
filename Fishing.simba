@@ -1,7 +1,7 @@
 {$I WaspLib/osrs.simba}
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_Debug_MOUSE}
-
+//cool beans
 var
 // ─────────────────────────────────────────────────────────────
 // Section: Fishing Settings
