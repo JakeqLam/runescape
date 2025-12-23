@@ -2,22 +2,80 @@
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_DEBUG_MOUSE}
 
- var
+var
+// ─────────────────────────────────────────────────────────────
+  LOGIN_NAME  = 'LizAnya';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+
+// ─────────────────────────────────────────────────────────────
+  profile      : TProfile;
   me: TPoint;
-  plant: String:= "Golovanova";
+  //plant: String:= "Golovanova";
+  plant: String:= "Bologano";
+
   anchorPt: TPoint:= [7316,36478];
 
   //tithe farm plots
   //farmTpa: TPointArray:= [plot1];
-  plotTpa: TPointArray:=[
-   [7324,36474],[7324,36462],[7324,36450],[7324,36438] //plot1
-  ,[7304,36438],[7304,36450],[7304,36462],[7304,36474]  //plot2
-  ];
-  waterBarrel : TRSObject;
+  plotTpa: TPointArray :=
+[
+  [7324,36474],[7324,36462],[7324,36450],[7324,36438],[7324,36414],[7324,36404],[7324,36392],[7324,36380],
+  [7304, 36380],[7304, 36392],[7304, 36404],[7304, 36414],[7304, 36438],[7304, 36450],[7304, 36462],[7304, 36474]
+];
 
+  numPlots: Integer := 15;
+  waterBarrel : TRSObject;
   farmPlots: TRSObjectArray;
 
-//Create fishing spots with a color finder
+  //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ Tithe Farm ---------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+
+procedure setupAntiBan();
+begin
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.DoAntiban();
+end;
+//Create tithe farm plots
 procedure initFarmPlots();
 var
   obj : TRSObject;
@@ -36,24 +94,31 @@ var
   i:Integer;
   retry:Integer;
 begin
-  for i :=0 to 7 do
+  for i :=0 to numPlots do
   begin
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     Minimap.CompassDegrees:=0;
-    Sleep(1000);
+    Sleep(800);
     ShowOnTarget(farmPlots[i]);
-    writeln("Attempting to water plant " + toStr(i));
-    for retry:=0 to 3 do
+    writeln("["+timeElapsed+"] " +"Attempting to water plant " + toStr(i+1));
+    if i = 5 then
+      Sleep(1500); //pause for travelling
+    if i = 13 then
+      Sleep(1500); //pause for travelling
+
+    for retry:=0 to 4 do
     begin
       farmPlots[i].Hover();
       if MainScreen.IsUpText('Water' + plant + ' plant', False, 0.75, 100) then
       begin
         farmPlots[i].Hover();
         Mouse.Click(EMouseButton.LEFT);
+        Sleep(150);
+        Mouse.Click(EMouseButton.LEFT);
         writeln("Successfully Watered "+plant);
-        Sleep(1200);
         break;
       end;
-      Sleep(1500);
+      Sleep(500);
     end;
   end;
 end;
@@ -63,24 +128,35 @@ var
   i:Integer;
   retry:Integer;
 begin
-  for i :=1 to 8 do
+  for i:=0 to numPlots do
   begin
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     Minimap.CompassDegrees:=0;
-    Sleep(1000);
+    Sleep(400);
     ShowOnTarget(farmPlots[i]);
-    writeln("Attempting to harvest plant " + toStr(i));
-    for retry:=0 to 3 do
+    writeln("["+timeElapsed+"] " +"Attempting to harvest plant " + toStr(i+1));
+    if i = 5 then
+      Sleep(1500); //pause for travelling
+    if i = 13 then
+      Sleep(1400); //pause for travelling
+    for retry:=0 to 2 do
     begin
+      Sleep(400);
       farmPlots[i].Hover();
+      if i = 7 then
+        Sleep(1500); //pause for travelling
+
       if MainScreen.IsUpText('Harvest ' + plant + ' plant', False, 0.75, 100) then
       begin
         farmPlots[i].Hover();
         Mouse.Click(EMouseButton.LEFT);
-        writeln("Successfully Harvested "+plant);
-        Sleep(1200);
+        Sleep(200);
+        Mouse.Click(EMouseButton.LEFT);
+        Sleep(100);
+        writeln("["+timeElapsed+"] " +"Successfully Harvested "+plant);
         break;
       end;
-      Sleep(1500);
+      Sleep(500);
     end;
   end;
 end;
@@ -90,26 +166,32 @@ var
   i:Integer;
   retry:Integer;
 begin
- for i :=1 to 8 do
+ for i:=0 to numPlots do
  begin
-  writeln("Attempting to plant seed " + toStr(i));
-  Sleep(1000);
+  timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+  writeln("["+timeElapsed+"] " +"Attempting to plant seed " + toStr(i+1));
+  Sleep(200);
   ShowOnTarget(farmPlots[i]);
 
+  if i = 5 then
+    Sleep(1500); //pause for travelling
+  if i = 13 then
+    Sleep(1600); //pause for travelling
   for retry:=0 to 3 do
   begin
     Inventory.Items.Click(plant+" seed");
     farmPlots[i].Hover();
-    Sleep(1000);
+    Sleep(150);
     Mouse.Click(EMouseButton.LEFT);
-    Sleep(1500);
+    Sleep(100);
     farmPlots[i].Hover();
     if MainScreen.IsUpText('Water ' + plant + ' seed', False, 0.75, 100) then
     begin
       Mouse.Click(EMouseButton.LEFT);
+      Sleep(150);
+      Mouse.Click(EMouseButton.LEFT);
       break;
     end;
-    Sleep(1500);
   end;
  end;
 end;
@@ -120,48 +202,59 @@ var
 begin
   Map.Setup([ERSChunk.TITHE_FARM]);
   me := Map.Position(); //Player
-   setupLogin();
-  waterBarrel := TRSObject.Create(@Map.Walker,[1,1,7],[[7292, 36482]], ["Water Barrel"]);
+  setupLogin();
+  waterBarrel := TRSObject.Create(@Map.Walker,[1,1,7],[[7292, 36490]], ["Water Barrel"]);
   initFarmPlots();
   ShowOnTarget(farmPlots);
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+
+  setupAntiBan();
+  timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+  timer.Start();
+
   Inventory.Open();
   Sleep(1000);
 
-  Map.Walker.WebWalk(anchorPt);
   while true do
   begin
+    if not RSClient.IsLoggedIn then
+      Login.DoLogin(profile);
+
+    Map.Walker.WebWalk(anchorPt);
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     if not Inventory.IsOpen then
       Inventory.Open();
-    writeln("Beginning planting phase for " + plant + " seeds");
+    writeln("["+timeElapsed+"] " +"Beginning planting phase for " + plant + " seeds");
     plantSeeds();
-    Sleep(2000);
-    Map.Walker.WebWalk(anchorPt);
+    Sleep(1200);
+    Map.Walker.WalkBlind(anchorPt);
+    Sleep(1000);
 
 
-    Sleep(5000);
-    writeln("Beginning Watering phase for " + plant + " plants");
+    writeln("["+timeElapsed+"] "+"Beginning Watering phase for " + plant + " plants");
     for i:= 1 to 2 do
     begin
-      writeln("Watering phase " + toStr(i));
+      writeln("["+timeElapsed+"] "+"Watering phase " + toStr(i));
       waterPlots();
-      Sleep(2000);
+      Sleep(1200);
       Map.Walker.WebWalk(anchorPt);
-      Sleep(16000);
     end;
 
-    writeln("Beginning Harvesting phase for " + plant + " plants");
+    writeln("["+timeElapsed+"] "+"Beginning Harvesting phase for " + plant + " plants");
     harvestPlots();
 
     ShowOnTarget(waterBarrel);
-    writeln("Completed a round of farming, refilling watering can");
+    writeln("["+timeElapsed+"] "+"Completed a round of farming, refilling watering can");
     Map.Walker.WebWalk([7292, 36486]);
     Inventory.Items.Click("Watering can");
     waterBarrel.Hover();
     Sleep(1500);
     Mouse.Click(EMouseButton.LEFT);
-    Sleep(1500);
+    Sleep(24000);
     Map.Walker.WebWalk(anchorPt);
+
+    printProgReport();
+    Antiban.DoAntiban();
   end;
 end;
 

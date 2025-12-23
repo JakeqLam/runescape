@@ -1,0 +1,40 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+
+  me:TPoint;
+
+  waterBarrel : TRSObject;
+  farmPlots: TRSObjectArray;
+
+
+//hello world!!!
+
+  //Create tithe farm plots
+procedure initFarmPlots();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(plotTpa) do
+  begin
+    obj := TRSObject.Create(@Map.Walker,[1,1,7],[plotTpa[tp]], ["Water Bologano seedling"]);
+    farmPlots.Insert(obj,tp);
+  end;
+end;
+begin
+    Map.Setup([ERSChunk.VARROCK]);
+    initFarmPlots();
+    ShowOnTarget(farmPlots);
+
+    while true do
+    begin
+      Sleep(2500);
+      me := Map.Position();
+      writeln(me);
+    end;
+
+
+end.

@@ -1,3 +1,4 @@
+ //Yew Longbows
   itemOne          := "Yew Logs";
   itemOneQuantity  := 27;
   itemOneMin       := 1;
@@ -9,7 +10,19 @@
   makeAllInterface := "Yew longbow";
   itemResult := "Yew longbow (u)";
 
+//-----------------------------------
 
+
+  itemOne          := "Ranarr weed";
+  itemOneQuantity  := 14;
+  itemOneMin       := 1;
+
+  itemTwo          := "Ranarr potion";
+  itemTwoQuantity  := 14;
+  itemTwoMin       := 1;
+
+  makeAllInterface := "";
+  itemResult := "Ranarr potion (u)";
 
 
 

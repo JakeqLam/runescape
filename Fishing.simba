@@ -14,7 +14,7 @@ var
 // Section: Bankstander Settings
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
-  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
+  LOGIN_NAME  = 'WashUrRice';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
@@ -41,12 +41,12 @@ var
 
 Procedure setupLocation();
 begin
-  writeln("setting up location");
-  //Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
-  //anchorPt:= [12348,37518];
-  //bankPt  := [12368,37450];
-  //fishSpotsTpa:= [[12344,37518],[12340,37510],[12340,37506]];
-
+  {writeln("setting up location");
+  Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+  anchorPt:= [12348,37518];
+  bankPt  := [12368,37450];
+  fishSpotsTpa:= [[12344,37518],[12340,37510],[12340,37506]];
+   }
   //Barbarian Outpost fishing
   Map.Setup([ERSChunk.EDGEVILLE,ERSChunk.VARROCK]);
   anchorPt:= [12436,36698];

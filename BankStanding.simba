@@ -24,6 +24,18 @@ var
 // Section: Chore Settings
 // ─────────────────────────────────────────────────────────────
 //**************************************************************
+   {
+  itemOne          := "Ranarr weed";
+  itemOneQuantity  := 14;
+  itemOneMin       := 1;
+
+  itemTwo          := "Vial of water";
+  itemTwoQuantity  := 14;
+  itemTwoMin       := 1;
+
+  makeAllInterface := "Ranarr potion (unf)";
+  itemResult := "Ranarr potion (unf)";
+  }
 
   itemOne          := "Yew Logs";
   itemOneQuantity  := 27;
@@ -35,6 +47,7 @@ var
 
   makeAllInterface := "Yew longbow";
   itemResult := "Yew longbow (u)";
+
 
   worldDuration      := 75;//minutes
  //**************************************************************
@@ -81,14 +94,14 @@ begin
   Sleep(1000);
   xp := XPBar.Read();
 
-  if XPBar.WaitXP(100) then
+  if XPBar.WaitXP(1000) then
      xpTimer.Reset();
 
-  if xpTimer.Elapsed >= 10 * 60 * 1000 then
+  if xpTimer.Elapsed >= 15 * 60 * 1000 then
   begin
     Logout.Open();
     Logout.Logout(3);
-    TerminateScript("Reason: No xp gained in the last 10 minutes");
+    TerminateScript("Reason: No xp gained in the last 15 minutes");
   end;
 end;
 
@@ -203,6 +216,8 @@ begin
 end;
 
 procedure checkInventory();
+var
+  data: TBankPosition;
 begin
   itemOneCount := Inventory.Items.Count([invOne]);
   itemTwoCount := Inventory.Items.Count([invTwo]);
@@ -214,32 +229,36 @@ begin
     Bank.Open();
     if(Bank.IsOpen()) then
     begin
-      Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemOneQuantity));
+      //Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemOneQuantity));
       Sleep(1000);
       Inventory.Items.Click(itemResult);
       Sleep(100);
-      Bank.Withdraw(invOne,True);
-      Sleep(1000);
+      Bank.Find(invOne,data);
+      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, itemOneQuantity, true);
+
+
     end;
-    Bank.Close();
-  end
-  else if (itemTwoCount < itemTwoMin) then
+  end;
+
+  if (itemTwoCount < itemTwoMin) then
   begin
     writeln("["+timeElapsed+"]: "+"Ran out of ["+itemTwo+"]" + ". Banking...");
     Bank.Open();
 
     if(Bank.IsOpen()) then
     begin
-      Sleep(1000);
-      Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemTwoQuantity));
+
+      //Bank.SetQuantity(ERSItemQuantity.Integer2Quantity(itemTwoQuantity));
       Sleep(1000);
       Inventory.Items.Click(itemResult);
       Sleep(100);
-      Bank.Withdraw(invTwo,True);
+      Bank.Find(invTwo,data);
+      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, itemTwoQuantity, true);
       Sleep(1000);
     end;
-    Bank.Close();
   end;
+
+  Bank.Close();
 end;
 
 
@@ -280,6 +299,9 @@ begin
 
     makeItems();
     checkInventory();
+
+    if not RSClient.IsLoggedIn() then
+      xpTimer.Reset();
     xpFailSafe();
     Antiban.DoAntiban();
   end;
