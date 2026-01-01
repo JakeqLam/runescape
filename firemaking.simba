@@ -2,38 +2,65 @@
 {$DEFINE WL_DEBUG_UPTEXT}
 {$DEFINE WL_DEBUG_MOUSE}
 var
-
   me:TPoint;
+  TBank:TPoint = [13012,36750]; //Varrock East
+  firePt:TPoint = [13124,36714];
+  firePt1:TPoint = [13124,36718];
+  log:= "Willow logs";
+  logCount:Integer;
 
-  waterBarrel : TRSObject;
-  farmPlots: TRSObjectArray;
-
-
-//hello world!!!
-
-  //Create tithe farm plots
-procedure initFarmPlots();
-var
-  obj : TRSObject;
-  tp : Integer;
+  isFiremaking: Boolean;
+  data:TBankPosition;
 begin
+  Map.Setup([Chunk(Box(50,53,51,53), 0)]);
 
-  for tp := 0 to High(plotTpa) do
-  begin
-    obj := TRSObject.Create(@Map.Walker,[1,1,7],[plotTpa[tp]], ["Water Bologano seedling"]);
-    farmPlots.Insert(obj,tp);
-  end;
-end;
-begin
-    Map.Setup([ERSChunk.VARROCK]);
-    initFarmPlots();
-    ShowOnTarget(farmPlots);
+  Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+  Inventory.Open();
+  me := Map.Position();
+  writeln(me);
+  Map.Walker.WebWalk(firePt);
 
     while true do
-    begin
-      Sleep(2500);
-      me := Map.Position();
-      writeln(me);
+    begin 
+      Sleep(1000);
+      if Chat.LeveledUp() then
+      begin
+        Writeln("Closing chat dialog");
+        Chat.Continue();
+        isFiremaking := false;
+       end;
+      if not isFiremaking then
+      begin
+        inc(logCount);
+        if logCount = 10 then
+          Map.Walker.WalkBlind(firePt1);
+        writeln("Lighting log on fire");
+        Inventory.Combine("Tinderbox", log);
+      end;
+      
+      if XPBar.WaitXP(2500) then
+      begin
+       isFiremaking:= true;
+      end
+      else begin
+        isFiremaking:= false;
+      end;
+
+      if Inventory.Items.Count(log) = 0 then
+      begin
+        logCount:= 0;
+        writeln("Ran out of logs, banking...");
+        Map.Walker.WebWalk(TBank);
+        Bank.Open();
+        Sleep(100);
+        Bank.Find(log,data);
+        Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 27, true);
+        
+        Sleep(1000);
+        Bank.Close();
+        Map.Walker.WebWalk(firePt);
+      end;
+
     end;
 
 

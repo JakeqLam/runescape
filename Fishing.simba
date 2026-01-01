@@ -14,7 +14,7 @@ var
 // Section: Bankstander Settings
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
-  LOGIN_NAME  = 'WashUrRice';     //Username/Email
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 

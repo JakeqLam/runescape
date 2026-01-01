@@ -24,27 +24,21 @@
   makeAllInterface := "";
   itemResult := "Ranarr potion (u)";
 
+//-----------------------------------
 
 
-
-
-
-
-
-
-
-  itemOne          := "Yew Logs";
-  itemOneQuantity  := 27;
+  itemOne          := "Feather";
+  itemOneQuantity  := 1;
   itemOneMin       := 1;
 
-  itemTwo          := "Knife";
+  itemTwo          := "Arrow shaft";
   itemTwoQuantity  := 1;
   itemTwoMin       := 1;
 
-  makeAllInterface := "Yew longbow";
-  itemResult := "Yew longbow (u)";
+  makeAllInterface := "Headless arrow";
+  itemResult := "Headless arrow";
 
-
+//-----------------------------------
 
     itemOne          := "Magic logs";
   itemOneQuantity  := 27;

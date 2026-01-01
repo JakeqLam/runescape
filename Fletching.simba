@@ -120,6 +120,7 @@ begin
           LoginWorldSwitcher.Close();
       Login.DoLogin(profile);
       worldTimer.Reset();
+      xpTimer.Reset();
     end;
   end;
 end;
@@ -177,15 +178,21 @@ end;
 
 
 procedure makeItems();
+var
+    boxes: TBoxArray;
 begin
   if not (Inventory.IsOpen) then
   begin
     writeln("["+timeElapsed+"]:" + " Opening Inventory");
     Inventory.Open();
   end;
-  if Make.IsOpen() then
-    Make.Select(makeAllInterface,QUANTITY_ALL);
 
+  boxes := Make.GetItemBoxes();
+
+  ShowOnTarget(boxes);
+
+  if Make.IsOpen() then
+    Make.Select(makeAllInterface,10);
   Sleep(2000);
   if not XPBar.EarnedXP() then
   begin
@@ -195,10 +202,9 @@ begin
 
       if Make.IsOpen() then
       begin
-        //Make.Select(makeAllInterface,QUANTITY_ALL);
         Make.Select(makeAllInterface,10);
 
-        Bank.Hover();
+        //Bank.Hover();
       end;
     end;
   end;
@@ -288,11 +294,11 @@ begin
     end;
 
     makeItems();
-    checkInventory();
+    //checkInventory();
 
     if not RSClient.IsLoggedIn() then
       xpTimer.Reset();
-    xpFailSafe();
+    //xpFailSafe();
     Antiban.DoAntiban();
   end;
 
