@@ -1,0 +1,300 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+// ─────────────────────────────────────────────────────────────
+// Section:Magic Bankstander Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
+  //Login values
+  LOGIN_NAME  = 'WashUrRice';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [301, 302, 299, 300, 303, 304, 305, 310, 311, 312, 314, 315, 317, 330, 331, 332, 333, 334, 335, 337, 338];
+// ─────────────────────────────────────────────────────────────
+
+  magicMethod:String := "superheat";
+
+  //Alchemy
+  alcList:TStringArray := ["Yew longbows"];
+
+  //Plank make
+  itemResult:String:='Camphor plank';
+  item:TRSItem :='Camphor logs';
+
+
+  //Superheat settings
+  //itemResult:String:='Iron bar';
+  //item:TRSItem :='Iron ore';
+  //itemResult:String:='Steel bar';
+  //item:TRSItem :='Iron ore';
+  //item1:TRSItem :='Coal';
+
+
+  count,numTele,i:Integer;
+  slotNum : Integer := 27; //High Alc 12, Superheat 27, Steel 8
+
+  //state
+  bankAttempt:Integer;
+  profile      : TProfile;
+  me:TPoint;
+
+  //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer,worldTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+
+  worldDuration      := 75;//minutes
+
+procedure worldHop();
+var
+  randomWorld: Integer;
+begin
+   // Setup WorldFetcher with default settings
+  WorldFetcher.Setup();
+
+  // Fetch all available worlds
+  if WorldFetcher.Fetch(WORLDS) then
+  begin
+    WriteLn('Fetched ', Length(WorldFetcher.Worlds), ' specific worlds');
+    randomWorld := WORLDS[ Random( Length(WORLDS) ) ];
+
+    //switch to that world
+    Logout.Open();
+    if Logout.IsOpen() then
+    begin
+      writeln("Switching to World number: " + toStr(randomWorld));
+      Logout.Logout();
+      Sleep(1000);
+      LoginWorldSwitcher.WaitOpen(1000);
+      LoginWorldSwitcher.Switch(randomWorld);
+
+      if LoginWorldSwitcher.IsOpen() then
+          LoginWorldSwitcher.Close();
+      Login.DoLogin(profile);
+      worldTimer.Reset();
+    end;
+  end;
+end;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Profile and time management
+// ─────────────────────────────────────────────────────────────
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+
+procedure setupAntiBan();
+begin
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.DoAntiban();
+end;
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ Magic BankStander 🪄 ----------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("| Total Teleports : " + toStr(numTele));
+  Writeln("| Total Actions : " + toStr(count));
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+// ─────────────────────────────────────────────────────────────
+// Section: Magic Training Methods
+// ─────────────────────────────────────────────────────────────
+Procedure teleport();
+begin
+    //Cast magic
+    Magic.Open();
+    Sleep(600);
+    writeln("Teleporting to Camelot. Count: " + toStr(numTele));
+    Magic.Click(ERSSpell.CAMELOT_TELEPORT);
+    inc(numTele);
+    Sleep(1250);
+end;
+
+procedure highAlc();
+var
+  i:Integer;
+begin
+    for i:= 0 to 27 do
+    begin
+      Sleep(500,900);
+      xp := XPBar.Read();
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      writeln("["+timeElapsed+"]: "+"Casting High Alchem on " + alcList[0] + ". count: "+ toStr(count));
+      if not Magic.Open() then
+        Magic.Open();
+      Sleep(100,200);
+      Magic.Click(ERSSpell.HIGH_LEVEL_ALCHEMY);
+      inc(count);
+      Sleep(100,200);
+      Inventory.Slots.Click(slotNum);
+      XPBar.WaitXP(1500);
+    end;
+end;
+
+procedure superHeatOre();
+var
+  i:Integer;
+begin
+    for i:= 0 to 27 do
+    begin
+      Sleep(500,900);
+      xp := XPBar.Read();
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      writeln("["+timeElapsed+"]: "+"Casting superheat on " + item + ". count: "+ toStr(count));
+      if not Magic.Open() then
+        Magic.Open();
+      Sleep(100,200);
+      Magic.Click(ERSSpell.SUPERHEAT_ITEM);
+      inc(count);
+      Sleep(100,200);
+      Inventory.Slots.Click(slotNum);
+      XPBar.WaitXP(1500);
+    end;
+end;
+
+procedure plankMake();
+var
+  i:Integer;
+  logCount:Integer;
+begin
+    logCount:= Inventory.Items.Count(item);
+
+    writeln(logCount);
+    while logCount > 0 do
+    begin
+      Sleep(800);
+      xp := XPBar.Read();
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      writeln("["+timeElapsed+"]: "+"Casting Plank Make on " + item + ". count: "+ toStr(count));
+      if logCount > 0 then //let the last cast plank spell finish
+      begin
+        Magic.Click(ERSSpell.PLANK_MAKE);
+        inc(count);
+        Sleep(100);
+        Inventory.Slots.Click(27);
+      end;
+      logCount:= Inventory.Items.Count(item);
+      Sleep(600);
+
+    end;
+end;
+// ─────────────────────────────────────────────────────────────
+
+procedure bankForItems();
+var
+  data: TBankPosition;
+begin
+    writeln("["+timeElapsed+"]: "+ " Missing Something, Banking...");
+    inc(bankAttempt);
+    Bank.Open();
+    if(Bank.IsOpen()) then
+    begin
+
+      Sleep(500);
+      Inventory.Items.Click(itemResult);
+      Sleep(1000);
+
+      Bank.Find(item,data);
+      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 27, true);
+
+      //Steel Bars
+      {Bank.Find(item,data);
+      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 9, true);
+      Sleep(1000);
+      Bank.Find(item1,data);
+      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 18, true);
+      }
+      Sleep(800);
+    end;
+    Bank.Close();
+    Sleep(600);
+    Inventory.Open();
+end;
+
+
+Procedure init();
+begin
+  Map.Setup([ERSChunk.VARROCK,ERSChunk.LUMBRIDGE,ERSChunk.SEERS_VILLAGE,ERSChunk.CATHERBY]);
+  Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+  setupLogin();
+  if not RSClient.IsLoggedIn then
+    Login.DoLogin(profile);
+
+  setupAntiBan();
+  timer.Start();
+  worldTimer.Start();
+  worldTimer.Reset();
+  while true do
+  begin
+    Sleep(1000);
+    timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+    {
+
+    if worldTimer.Elapsed >= worldDuration * 60 * 1000 then
+    begin
+      Writeln("["+ timeElapsed +"]" + "idling until logout");
+      //Sleep(75000);
+      printProgReport();
+      //worldHop();
+      Sleep(3000);
+    end;
+    }
+
+
+    //teleport();
+
+    //highAlc();
+    if Inventory.Items.Contains(item) then
+    begin
+      //superHeatOre();
+      plankMake();
+    end
+    else
+    begin
+      Minimap.CompassDegrees:=90;
+      bankForItems();
+    end;
+
+    printProgReport();
+    Antiban.DoAntiban();
+  end;
+
+end;
+begin
+   init();
+
+end.

@@ -1,5 +1,5 @@
  //Yew Longbows
-  itemOne          := "Yew Logs";
+  itemOne          := "Yew logs";
   itemOneQuantity  := 27;
   itemOneMin       := 1;
 

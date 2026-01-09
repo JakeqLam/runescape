@@ -4,18 +4,18 @@
 
 var
 // ─────────────────────────────────────────────────────────────
-  LOGIN_NAME  = 'LizAnya';     //Username/Email
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
 // ─────────────────────────────────────────────────────────────
   profile      : TProfile;
   me: TPoint;
-  //plant: String:= "Golovanova";       //lvl34
+  plant: String:= "Golovanova";       //lvl34
   //plant: String:= "Bologano";         //lvl54
-  plant: String:= "Logavano";         //lvl74
-  wateringCan: String := "Gricoller's can";
-  //wateringCan: String := "Watering can";
+  //plant: String:= "Logavano";         //lvl74
+  //wateringCan: String := "Gricoller's can";
+  wateringCan: String := "Watering can";
 
   anchorPt: TPoint:= [7316,36478];
 

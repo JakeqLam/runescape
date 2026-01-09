@@ -1,0 +1,21 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+  me:TPoint;
+
+  bankPt
+    {X = 8396, Y = 34754}
+     {X = 8312, Y = 34774}
+begin
+    Map.Setup([ERSChunk.LUNAR_ISLE]);
+
+    while true do
+    begin
+      Sleep(2500);
+      me := Map.Position();
+      writeln(me);
+    end;
+
+
+end.

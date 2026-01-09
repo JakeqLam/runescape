@@ -3,12 +3,19 @@
 {$DEFINE WL_DEBUG_MOUSE}
 var
   me:TPoint;
-
+  treeObject:TRSObject;
 begin
     Map.Setup([ERSChunk.VARROCK]);
+    me := Map.Position();
+    treeObject := TRSObject.Create(@Map.Walker, [1,1,7], [[12682,36616]], ['Tree']);
 
+    ShowOnTarget(treeObject);
     while true do
     begin
+      writeln("walking!!");
+      treeObject.WalkClick();
+      treeObject.Hover();
+      writeln("Chopping!");
       Sleep(2500);
       me := Map.Position();
       writeln(me);

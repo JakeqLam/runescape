@@ -197,7 +197,7 @@ begin
       end;
     end;
 
-    Sleep(1000);
+    Sleep(2000);
 end;
 //Pathfinding to closest crab
 procedure setCrabLocation();
@@ -238,7 +238,7 @@ end;
 procedure checkCombatState();
 begin
   xp := XPBar.Read();
-  if not XPBar.WaitXP(1500) then
+  if not XPBar.WaitXP(5000) then
   begin
     isAttacking := false;
     writeln("[" + timeElapsed +"]: " + "No longer in combat");
@@ -255,7 +255,7 @@ var
 begin
   for i:=0 to 5 do
   begin
-    Sleep(1000);
+    Sleep(1500);
     if crabLocation = "north" then
     begin
      Minimap.CompassDegrees:= 0;
@@ -341,24 +341,12 @@ begin
       checkCrabState();
       if isCrabDead then
       begin
-        //mineCrab();
-        Sleep(2000);
+        mineCrab();
+        Sleep(4000);
         goToNextCrab();
         Sleep(2000);
         printProgReport();
       end;
-    end;
-
-    //use special attack
-    if isAttacking and Minimap.HasSpecial() then
-    begin
-      if (Minimap.GetHPLevel() > 50) and (Minimap.GetSpecLevel() > 60)then
-      begin
-
-        writeln("[" + timeElapsed +" ]: " + "Activating Special Attack");
-        Minimap.EnableSpecial(60);
-      end;
-
     end;
     checkCombatState();
 
