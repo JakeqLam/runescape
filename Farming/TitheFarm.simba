@@ -21,13 +21,20 @@ var
 
   //tithe farm plots
   //farmTpa: TPointArray:= [plot1];
-  plotTpa: TPointArray :=
+
+ { plotTpa: TPointArray :=
 [
   [7324,36474],[7324,36462],[7324,36450],[7324,36438],[7324,36414],[7324,36404],[7324,36392],[7324,36380],
   [7304, 36380],[7304, 36392],[7304, 36404],[7304, 36414],[7304, 36438],[7304, 36450],[7304, 36462],[7304, 36474]
+]; }
+
+  plotTpa: TPointArray :=
+[
+  [7324,36474],[7324,36462],[7324,36450],[7324,36438],
+  [7304, 36438],[7304, 36450],[7304, 36462],[7304, 36474]
 ];
 
-  numPlots: Integer := 15;
+  numPlots: Integer := 7;
   waterBarrel : TRSObject;
   farmPlots: TRSObjectArray;
 
@@ -76,6 +83,8 @@ procedure setupAntiBan();
 begin
 
   Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
   Antiban.DoAntiban();
 end;
 //Create tithe farm plots
@@ -101,13 +110,9 @@ begin
   begin
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     Minimap.CompassDegrees:=0;
-    Sleep(850);
+    Sleep(1500);
     ShowOnTarget(farmPlots[i]);
     writeln("["+timeElapsed+"] " +"Attempting to water plant " + toStr(i+1));
-    if i = 5 then
-      Sleep(1500); //pause for travelling
-    if i = 13 then
-      Sleep(1500); //pause for travelling
 
     for retry:=0 to 4 do
     begin
@@ -116,13 +121,13 @@ begin
       begin
         farmPlots[i].Hover();
         Mouse.Click(EMouseButton.LEFT);
-        Sleep(250);
+        Sleep(150);
         Mouse.Click(EMouseButton.LEFT);
-        Sleep(100);
+        Sleep(150);
         writeln("Successfully Watered "+plant);
         break;
       end;
-      Sleep(500);
+      Sleep(1200);
     end;
   end;
 end;
@@ -136,19 +141,14 @@ begin
   begin
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     Minimap.CompassDegrees:=0;
-    Sleep(850);
+    Sleep(1500);
     ShowOnTarget(farmPlots[i]);
     writeln("["+timeElapsed+"] " +"Attempting to harvest plant " + toStr(i+1));
-    if i = 5 then
-      Sleep(1500); //pause for travelling
-    if i = 13 then
-      Sleep(1600); //pause for travelling
+
     for retry:=0 to 2 do
     begin
-      Sleep(400);
+      Sleep(500);
       farmPlots[i].Hover();
-      if i = 7 then
-        Sleep(1500); //pause for travelling
 
       if MainScreen.IsUpText('Harvest ' + plant + ' plant', False, 0.75, 100) then
       begin
@@ -156,11 +156,11 @@ begin
         Mouse.Click(EMouseButton.LEFT);
         Sleep(200);
         Mouse.Click(EMouseButton.LEFT);
-        Sleep(100);
+        Sleep(200);
         writeln("["+timeElapsed+"] " +"Successfully Harvested "+plant);
         break;
       end;
-      Sleep(500);
+      Sleep(1000);
     end;
   end;
 end;
@@ -174,26 +174,22 @@ begin
  begin
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   writeln("["+timeElapsed+"] " +"Attempting to plant seed " + toStr(i+1));
-  Sleep(200);
+  Sleep(800);
   ShowOnTarget(farmPlots[i]);
-
-  if i = 5 then
-    Sleep(1500); //pause for travelling
-  if i = 13 then
-    Sleep(1600); //pause for travelling
   for retry:=0 to 3 do
   begin
     Inventory.Items.Click(plant+" seed");
     farmPlots[i].Hover();
-    Sleep(150);
+    Sleep(500);
     Mouse.Click(EMouseButton.LEFT);
-    Sleep(100);
+    Sleep(500);
     farmPlots[i].Hover();
     if MainScreen.IsUpText('Water ' + plant + ' seed', False, 0.75, 100) then
     begin
       Mouse.Click(EMouseButton.LEFT);
       Sleep(150);
       Mouse.Click(EMouseButton.LEFT);
+      Sleep(150);
       break;
     end;
   end;
@@ -230,9 +226,9 @@ begin
       Inventory.Open();
     writeln("["+timeElapsed+"] " +"Beginning planting phase for " + plant + " seeds");
     plantSeeds();
-    Sleep(1200);
+    Sleep(1500);
     Map.Walker.WalkBlind(anchorPt);
-    Sleep(1000);
+    Sleep(5500);
 
 
     writeln("["+timeElapsed+"] "+"Beginning Watering phase for " + plant + " plants");
@@ -240,13 +236,14 @@ begin
     begin
       writeln("["+timeElapsed+"] "+"Watering phase " + toStr(i));
       waterPlots();
-      Sleep(1200);
+      Sleep(2500);
       Map.Walker.WebWalk(anchorPt);
+      Sleep(1500);
     end;
 
     writeln("["+timeElapsed+"] "+"Beginning Harvesting phase for " + plant + " plants");
     harvestPlots();
-
+    Sleep(2000);
     ShowOnTarget(waterBarrel);
     writeln("["+timeElapsed+"] "+"Completed a round of farming, refilling watering can");
     Map.Walker.WebWalk([7292, 36486]);
@@ -254,7 +251,7 @@ begin
     waterBarrel.Hover();
     Sleep(1500);
     Mouse.Click(EMouseButton.LEFT);
-    Sleep(24000);
+    Sleep(12000);
     Map.Walker.WebWalk(anchorPt);
 
     printProgReport();
