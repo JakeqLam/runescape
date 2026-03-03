@@ -23,18 +23,12 @@ var
   WORLDS: TIntegerArray := [301, 308, 316, 326, 335, 379, 380, 382, 383, 384,455];  //F2P
 
   //Mob Name
-  mobName     := "Cow";
+  mobName     := "Black demon";
   food        := "";
   hpThreshold := 5;
   trainPrayer := false;
-
-  lootList : TStringArray := ['Coins', 'Bones'];
   bankPt  : TPoint := [12676, 36470]; //fill this is with your reset anchor position
   anchorPt   : TPoint := [12820,37258];
-
-
-  //anchorPt1:TPoint := [12820, 37262];
-  //anchorPt2:TPoint := [12832, 37274];
 
   playerSensedIdling := 3;//seconds
   worldDuration      := 45;//minutes
@@ -76,11 +70,6 @@ begin
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
   Writeln("+-------------------------------------+");
   Writeln("");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
-  //Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("");
 end;
 
 // ─────────────────────────────────────────────────────────────
@@ -89,18 +78,11 @@ end;
 
 procedure setupLocation();
 begin
-   Map.Setup([ERSChunk.LUMBRIDGE]); //lumbrdige
+   //Map.Setup([ERSChunk.LUMBRIDGE]); //lumbrdige
    //Map.Setup([ERSChunk.VARROCK]);//Varrock
    //Map.Setup([ERSChunk.FALADOR]);
-//Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
-end;
-
-procedure navigateToBank();
-begin
-  Map.Walker.WebWalk(bankPt);
-  Bank.Open();
-  Bank.DepositInventory();
-  Bank.Withdraw(food);
+   //Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+   Map.Setup([ERSChunk.CATACOMBS_OF_KOUREND]);
 end;
 
 
@@ -142,93 +124,10 @@ begin
    Antiban.DoAntiban();
 end;
 
-procedure worldHop();
-var
-  randomWorld: Integer;
-begin
-   // Setup WorldFetcher with default settings
-  WorldFetcher.Setup();
-
-  // Fetch all available worlds
-  if WorldFetcher.Fetch(WORLDS) then
-  begin
-    WriteLn('Fetched ', Length(WorldFetcher.Worlds), ' specific worlds');
-    randomWorld := WORLDS[ Random( Length(WORLDS) ) ];
-
-    //switch to that world
-    Logout.Open();
-    if Logout.IsOpen() then
-    begin
-      writeln("Switching to World number: " + toStr(randomWorld));
-      Logout.Logout();
-      Sleep(1000);
-      LoginWorldSwitcher.WaitOpen(1000);
-      LoginWorldSwitcher.Switch(randomWorld);
-      Sleep(2000);
-      if LoginWorldSwitcher.IsOpen() then
-          LoginWorldSwitcher.Close();
-
-      Login.DoLogin(profile);
-      worldTimer.Reset();
-    end;
-  end;
-end;
-
 // ─────────────────────────────────────────────────────────────
 // Section: State Helpers
 // ─────────────────────────────────────────────────────────────
 
-procedure xpFailSafe();
-begin
-  Sleep(1000);
-  xp := XPBar.Read();
-
-  if XPBar.WaitXP(600) then
-     xpTimer.Reset();
-
-  if xpTimer.Elapsed >= 200 * 60 * 1000 then
-  begin
-    Logout.Open();
-    Logout.Logout();
-    //TerminateScript("Reason: No xp gained in the last 10 minutes");
-    Sleep(5000);
-  end;
-end;
-
-procedure checkAreaForPlayers();
-begin
-  if not isAttacking then
-  begin
-    if Chat.GetMessage(0) = 'Someone else is fighting that.' then
-    begin
-      isPlayerNearby := true;
-      Writeln("[" + timeElapsed +"]: There are players in your area. idling for " + toStr(playerSensedIdling) + " seconds");
-      Sleep(playerSensedIdling * 1000);
-
-      if PLAYER_INTERRUPT = 15 then
-      begin
-        xpTimer.Reset();
-        //Map.Walker.WalkBlind(anchorPt1);
-        //Writeln("[" + timeElapsed +"]: World is too crowded. Hopping worlds");
-        //worldHop();
-        PLAYER_INTERRUPT := 0;
-      end;
-
-      if PLAYER_INTERRUPT = 20 then
-      begin
-        xpTimer.Reset();
-        Writeln("[" + timeElapsed +"]: Area crowded, moviFng location");
-        //Map.Walker.WalkBlind(anchorPt2);
-        //Writeln("[" + timeElapsed +"]: World is too crowded. Hopping worlds");
-        //worldHop();
-        PLAYER_INTERRUPT := 0;
-      end;
-
-
-      inc(PLAYER_INTERRUPT);
-    end;
-  end;
-end;
 
 procedure checkCombatState();
 begin
@@ -237,7 +136,6 @@ begin
   if not XPBar.WaitXP(600) then
   begin
     isAttacking := false;
-    Map.Walker.WalkBlind(anchorPt);
     Writeln("[" + timeElapsed +"]: " + "No longer in combat");
   end
   else
@@ -250,58 +148,6 @@ end;
 // ─────────────────────────────────────────────────────────────
 // Section: Player Interaction
 // ─────────────────────────────────────────────────────────────
-
-procedure buryBones();
-var
-  i: Integer;
-  boneCount: Integer;
-begin
-  if trainPrayer then
-  begin
-    boneCount := Inventory.Items.Count("Bones");
-    if boneCount > 0 then
-    begin
-      writeln("["+timeElapsed+"]: " + "Burying bones 🦴");
-      for i := 0 to boneCount do
-      begin
-        Inventory.Items.Click("Bones");
-        Sleep(1000);
-      end;
-    end;
-  end;
-end;
-
-//loot items from players item list
-procedure lootItems();
-var
-  i : Integer;
-  atpa:   T2DPointArray;
-begin
-   Sleep(1000);
-   if loot.Find(atpa) then
-   begin
-    //ShowOnTarget(loot);
-    Sleep(500,1000);
-    Mouse.Click(EMouseButton.RIGHT);
-    Sleep(1000);
-    if ChooseOption.IsOpen() then
-    begin
-      for i := 0 to High(lootList) do
-      begin
-        if ChooseOption.Find(lootList) then
-        begin
-          writeln("["+timeElapsed+"]: "+"Found " + toStr(lootList[i]) + " 💰");
-          Sleep(1000);
-          //ChooseOption.Select(['Take ' + toStr(lootList[i])]);
-          Sleep(2000);
-          Mouse.Click(EMouseButton.RIGHT);
-        end;
-      end;
-    end;
-    ChooseOption.Close();
-    printProgReport();
-   end;
-end;
 
 //Get the closest mob and set the target
 procedure attackTarget();
@@ -322,7 +168,7 @@ begin
                 ShowOnTarget(mob);
                 WriteLn("[" + timeElapsed +"]: "+ 'Found ' + mobName + ', Attacking now ⚔️');
                 Mouse.Click(EMouseButton.LEFT);
-                checkAreaForPlayers();
+
                 isAttacking := true;
 
               end;
@@ -354,34 +200,25 @@ begin
   player := Map.Position(); //Player Position
   writeln("[" + timeElapsed +"]: " + "Initializing at Position: " + toStr(Map.Position()));
 
-  loot := TRSEntity.Create(Map.Walker,[1,1,7],80,[player], ['Bones'], [ERSMinimapDot.ITEM]);
   mob := TRSEntity.Create(Map.Walker,[1,1,7],80,[player], [mobName], [ERSMinimapDot.NPC]);
   loot.Finder.ColorClusters += [
-   [$CCCCD2, 0.492, EColorSpace.LCH, [0.626, 1.188, 1.188]],
-   [$C7C4CE, 2.504, EColorSpace.LCH, [0.637, 2.161, 0.203]],8
+   [$ACB2B7, 0.000, EColorSpace.LCH, [1.000, 1.000, 1.000]],
+   [$BFC3C7, 0.000, EColorSpace.LCH, [1.000, 1.000, 1.000]],8
   ];
 
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
   Inventory.Open();
 
-  Map.Walker.WalkBlind(anchorPt);
+
   Writeln("[" + timeElapsed +"]: " + "Walking to anchor coordinate: " + toStr(anchorPt));
-  worldTimer.Reset();
+
   //Begin Loop
   while True do
   begin
+    ShowOnTarget(mob);
     Antiban.DoAntiban();
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
-    xpFailSafe();
 
-    if worldTimer.Elapsed >= worldDuration * 60 * 1000 then
-    begin
-      printProgReport();
-      //worldHop();
-    end;
-
-
-    Antiban.DoAntiban();
     Sleep(1500,2000);
     //Removing dialog from chat box
     if Chat.LeveledUp() then
@@ -392,14 +229,9 @@ begin
 
     checkCombatState();
 
-    if trainPrayer then
-       buryBones();
-
     //if you are out of combat and the Mob is dead. Move to the next target
     if not isAttacking then
     begin
-
-      //lootItems();
 
       for atmpt := 0 to MAX_ATTEMPTS do
       begin
@@ -408,15 +240,10 @@ begin
         writeln("["+timeElapsed+"]: "+"Looking for " + mobName + "'s position. Attempt: " + toStr(atmpt));
         if atmpt = MAX_ATTEMPTS then
         begin
-          Map.Walker.WebWalk(anchorPt);
+
           Writeln("[" + timeElapsed +"]: " + "Could not find " + mobName +" , Walking to anchor coordinate: " + toStr(anchorPt));
           printProgReport();
         end;
-
-        if atmpt = 2 then
-          Minimap.CompassDegrees := 60;
-        if atmpt = 6 then
-          Minimap.CompassDegrees := 180;
 
         attackTarget();
         checkCombatState();

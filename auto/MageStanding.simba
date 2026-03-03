@@ -7,7 +7,7 @@ var
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
   //Login values
-  LOGIN_NAME  = 'WashUrRice';     //Username/Email
+  LOGIN_NAME  = 'SirRendor';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
   WORLDS: TIntegerArray := [301, 302, 299, 300, 303, 304, 305, 310, 311, 312, 314, 315, 317, 330, 331, 332, 333, 334, 335, 337, 338];
@@ -19,22 +19,20 @@ var
   alcList:TStringArray := ["Yew longbows"];
 
   //Plank make
-  itemResult:String:='Camphor plank';
-  item:TRSItem :='Camphor logs';
+  //itemResult:String:='Camphor plank';
+  //item:TRSItem :='Camphor logs';
   itemCount:Integer;
 
   //Superheat settings
-  //itemResult:String:='Iron bar';
-  //item:TRSItem :='Iron ore';
+  itemResult:String:='Iron bar';
+  item:TRSItem :='Iron ore';
 
-  //itemResult:String:='Steel bar';
-  //item:TRSItem :='Iron ore';
-  //item1:TRSItem :='Coal';
+
 
 
   castAttempt,count,numTele,i,fail:Integer;
   slotNum : Integer := 27; //High Alc 12, Superheat 27, Steel 8
-
+  bankTab : Integer := 3;
   //state
   bankAttempt:Integer;
   profile      : TProfile;
@@ -47,37 +45,6 @@ var
   actions      : Integer;
 
   worldDuration      := 75;//minutes
-
-procedure worldHop();
-var
-  randomWorld: Integer;
-begin
-   // Setup WorldFetcher with default settings
-  WorldFetcher.Setup();
-
-  // Fetch all available worlds
-  if WorldFetcher.Fetch(WORLDS) then
-  begin
-    WriteLn('Fetched ', Length(WorldFetcher.Worlds), ' specific worlds');
-    randomWorld := WORLDS[ Random( Length(WORLDS) ) ];
-
-    //switch to that world
-    Logout.Open();
-    if Logout.IsOpen() then
-    begin
-      writeln("Switching to World number: " + toStr(randomWorld));
-      Logout.Logout();
-      Sleep(1000);
-      LoginWorldSwitcher.WaitOpen(1000);
-      LoginWorldSwitcher.Switch(randomWorld);
-
-      if LoginWorldSwitcher.IsOpen() then
-          LoginWorldSwitcher.Close();
-      Login.DoLogin(profile);
-      worldTimer.Reset();
-    end;
-  end;
-end;
 
 // ─────────────────────────────────────────────────────────────
 // Section: Profile and time management
@@ -111,6 +78,23 @@ begin
   Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
   Antiban.DoAntiban();
 end;
+
+procedure setupInventory();
+begin
+  if (magicMethod = "makingPlanks") then
+  begin
+    writeln("Init plank inventory");
+  end;
+  if (magicMethod = "superheat") then
+  begin
+    writeln("Init superheating inventory");
+    itemResult:='Iron bar';
+    item :='Iron ore';
+
+  end;
+
+
+end;
 // ─────────────────────────────────────────────────────────────
 // Section: Reporting
 // ─────────────────────────────────────────────────────────────
@@ -122,13 +106,6 @@ begin
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
   Writeln("+-------------------------------------+");
-  Writeln("");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
-  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("| Total Teleports : " + toStr(numTele));
-  Writeln("| Total Actions : " + toStr(count));
-  Writeln("+------------ XP Gained --------------+");
   Writeln("");
 end;
 // ─────────────────────────────────────────────────────────────
@@ -243,6 +220,8 @@ begin
 end;
 // ─────────────────────────────────────────────────────────────
 
+
+//  -- Banking  --
 procedure bankForItems();
 var
   data: TBankPosition;
@@ -252,21 +231,14 @@ begin
     Bank.Open();
     if(Bank.IsOpen()) then
     begin
-
+      ShowOnTarget(Bank.Tabs[bankTab]);
       Sleep(500);
       Inventory.Items.Click(itemResult);
+      Bank.OpenTab(bankTab);
       Sleep(1000);
 
-      Bank.Find(item,data);
-      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 27, true);
+      Bank.Slots.Click(0);
 
-      //Steel Bars
-      {Bank.Find(item,data);
-      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 9, true);
-      Sleep(1000);
-      Bank.Find(item1,data);
-      Bank._InteractionHelper(ERSBankInteraction.WITHDRAW, data.Slot, 18, true);
-      }
       Sleep(800);
     end;
     Bank.Close();
@@ -280,9 +252,6 @@ begin
   Map.Setup([ERSChunk.VARROCK,ERSChunk.LUMBRIDGE,ERSChunk.SEERS_VILLAGE,ERSChunk.CATHERBY]);
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
   setupLogin();
-  if not RSClient.IsLoggedIn then
-    Login.DoLogin(profile);
-
   setupAntiBan();
   timer.Start();
   worldTimer.Start();
@@ -310,9 +279,9 @@ begin
     if Inventory.Items.Contains(item) then
     begin
       itemCount := Inventory.Items.Count(item);
-      //superHeatOre();
+      superHeatOre();
 
-      plankMake();
+      //plankMake();
 
 
     end

@@ -1,0 +1,215 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+// ─────────────────────────────────────────────────────────────
+// Section: Bankstander Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
+
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [302, 303, 304, 305, 306, 307, 309, 310, 311, 312, 313, 314, 315, 317, 320, 321, 322, 323, 324, 325, 327, 328, 329, 330, 331, 332, 333, 334, 336, 337, 338, 339, 340, 341, 342, 343, 344, 346, 347, 348, 349, 350, 351, 352, 354, 355, 356, 357, 358, 359, 360, 362,367, 368, 369, 370];
+  //Login values
+  profile      : TProfile;
+// ─────────────────────────────────────────────────────────────
+// Section: Chore Settings
+// ─────────────────────────────────────────────────────────────
+//**************************************************************
+  npcName:="Knight of Ardougne";
+  food := "Jug of wine";
+  hpThreshold := 15;
+  cpCount,neckCount,foodCount:Integer;
+
+  Consumer : TRSConsumables;
+  me:TPoint;
+  npc:TRSEntity;
+  door,bankObj:TRSObject;
+
+  Tbank:TPoint:=[7236,36164]; //{X = 10620, Y = 37286}
+  anchorPt:TPoint:=[7192,36010];
+
+
+  //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer,worldTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+  hp : Integer;
+
+
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+//Antiban
+procedure setupAntiBan();
+begin
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.DoAntiban();
+end;
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ BankStander 💰----------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure pickpocket();
+begin
+  Sleep(2000);
+  npc.Hover();
+  if MainScreen.IsUpText('Pickpocket ' + npcName, False, 0.75, 100) then
+  begin
+    writeln("["+timeElapsed+"]: " +"Pickpocketing " + npcName);
+    Sleep(100);
+    npc.Hover();
+    Mouse.Click(EMouseButton.LEFT);
+  end;
+end;
+
+procedure handleDoor();
+begin
+  writeln("["+timeElapsed+"]:" +"Handling door...");
+  ShowOnTarget(door);
+  door.Hover();
+  if MainScreen.IsUpText('Open Door', False, 0.75, 100) then
+  begin
+    door.Hover();
+    Sleep(100);
+    Mouse.Click(EMouseButton.LEFT);
+    Sleep(1000);
+  end;
+
+end;
+procedure bankForItems();
+begin
+  Map.Walker.WebWalk(TBank);
+  Minimap.CompassDegrees:=0;
+  writeln("["+timeElapsed+"]:" +"Out of supplies, Walking to bank...");
+
+  Map.Walker.WebWalk([7236,36166]);
+  ShowOnTarget(bankObj);
+  bankObj.Click();
+  Sleep(1500);
+
+  if Bank.Open() then
+  begin
+    writeln("["+timeElapsed+"]:" +"Depositing inventory");
+    Bank.DepositInventory();
+    printProgReport();
+    Sleep(1000);
+    Antiban.DoAntiban();
+  end;
+  writeln("["+timeElapsed+"]:" +"Walking to pickpocketing spot");
+  Map.Walker.WebWalk(anchorPt);
+  handleDoor();
+end;
+
+
+//Heal if hp is low
+procedure healHP();
+begin
+    if not Consumables.Has(ERSConsumable.FOOD) then
+    begin
+      WriteLn("["+timeElapsed+"]: "+'No food found (e.g., Lobster).');
+      //navigateToBank();
+    end;
+
+    hp := Minimap.GetLevel(ERSMinimapOrb.HITPOINTS);
+    if hp <= hpThreshold then
+    begin
+      writeln("["+timeElapsed+"]: "+'HP is low. Eating '+food+" You have: "+toStr(Consumer.Count(ERSConsumable.FOOD)) + " left");
+      Consumer.Consume(ERSConsumable.FOOD);
+      writeln("[" + timeElapsed +"]: " + 'Current HP: ' + toStr(hp));
+    end;
+end;
+
+procedure init();
+begin
+    Map.Setup([ERSChunk.ARDOUGNE]);
+    me := Map.Position();
+    bankObj := TRSObject.Create(Map.Walker,[1,1,7],[TBank], ["use Bank chest"]);
+    Consumer.Setup();
+    Consumer.find(ERSConsumable.FOOD);
+    Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+    Inventory.Open();
+    writeln(me);
+
+    setupLogin();
+    //setupAntiBan();
+
+    npc := TRSEntity.Create(Map.Walker,[1,1,5],80,[me], ['Pickpocket ' + npcName], [ERSMinimapDot.NPC]);
+    npc.Finder.ColorClusters += [
+     [$B81E97, 0.000, EColorSpace.LCH, [1.000, 1.000, 1.000]],
+     [$B51E98, 0.510, EColorSpace.LCH, [1.064, 0.874, 1.064]],8
+    ];
+
+    while true do
+    begin
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      xp := XPBar.Read();
+      ShowOnTarget(npc);
+
+      if Chat.GetMessage(0) = "You're stunned!" then
+      begin
+        writeln("["+timeElapsed+"]: "+"You have been stunned, Pausing...");
+        Sleep(4400);
+      end;
+
+      //supply checks
+      cpCount := Inventory.Items.ReadStack("Coin pouch");
+      foodCount := Inventory.Items.Count(food);
+      neckCount := Inventory.Items.Count("Dodgy necklace");
+
+      if cpCount = 28 then
+      begin
+        writeln("["+timeElapsed+"]: "+"You have been stunned, pausing");
+        Inventory.Items.Click("Coin pouch");
+        if not Equipment.Items.Contains("Dodgy necklace") then
+        begin
+          writeln("["+timeElapsed+"]: "+"Necklace has crumbled equipping new one.");
+          if neckCount > 0 then
+          begin
+            Inventory.Items.Click("Dodgy necklace");
+          end
+          else
+          begin
+            writeln("["+timeElapsed+"]: "+"No more necklaces in inventory");
+          end;
+        end;
+      end;
+
+
+      pickpocket();
+      healHP();
+
+
+
+
+    end;
+end;
+
+
+begin
+  init();
+end.
+

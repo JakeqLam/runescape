@@ -1,0 +1,151 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+// ─────────────────────────────────────────────────────────────
+// Section: Bankstander Settings
+// Please fill out the following variables before starting the bot
+// ─────────────────────────────────────────────────────────────
+
+  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [302, 303, 304, 305, 306, 307, 309, 310, 311, 312, 313, 314, 315, 317, 320, 321, 322, 323, 324, 325, 327, 328, 329, 330, 331, 332, 333, 334, 336, 337, 338, 339, 340, 341, 342, 343, 344, 346, 347, 348, 349, 350, 351, 352, 354, 355, 356, 357, 358, 359, 360, 362,367, 368, 369, 370];
+  //Login values
+  profile      : TProfile;
+// ─────────────────────────────────────────────────────────────
+// Section: Chore Settings
+// ─────────────────────────────────────────────────────────────
+//**************************************************************
+
+  me:TPoint;
+  door,stall,bankObj:TRSObject;
+  TStall:TPoint:=[7204,36002];
+  Tbank:TPoint:=[7236,36164];
+  anchorPt:TPoint:=[7192,36010];
+  TDoor:TPoint:=[7192,36010];
+  i:Integer;
+  //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer,worldTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+//Antiban
+procedure setupAntiBan();
+begin
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
+  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_HOUR*8, ONE_HOUR*5, 0.2, 0.8);        //Sleep
+  Antiban.DoAntiban();
+end;
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ BankStander 💰----------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure steal();
+begin
+
+  Sleep(2200);
+  stall.Hover();
+  if MainScreen.IsUpText('Steal-from Fruit stall', False, 0.75, 100) then
+  begin
+    writeln("["+timeElapsed+"]:" +"Stealing from Fruit Stall");
+    Sleep(100);
+    stall.Hover();
+    Mouse.Click(EMouseButton.LEFT);
+  end;
+end;
+
+procedure handleDoor();
+begin
+  for i:= 0 to 1 do
+  begin
+    writeln("["+timeElapsed+"]:" +"Handling door...");
+    ShowOnTarget(door);
+    door.Hover();
+
+    if MainScreen.IsUpText('Open Door', False, 0.75, 100) then
+    begin
+      door.Hover();
+      Sleep(100);
+      Mouse.Click(EMouseButton.LEFT);
+      Sleep(1000);
+
+    end;
+end;
+
+end;
+
+begin
+    Map.Setup([Chunk(Box(27,56,28,55), 0)]);
+    me := Map.Position();
+    //bankObj := TRSObject.Create(Map.Walker,[1,1,7],[TBank], ["use Bank chest"]);
+    stall := TRSObject.Create(Map.Walker,[1,1,7],[TStall], ["Steal-from Fruit stall"]);
+    door := TRSObject.Create(Map.Walker,[1,1,7],[TDoor], ["use Bank chest"]);
+    me := Map.Position();
+
+    ShowOnTarget(stall);
+    writeln(me);
+    setupAntiBan();
+    setupLogin();
+    while true do
+    begin
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      xp := XPBar.Read();
+      steal();
+      Inventory.Open();
+      if Inventory.IsFull() then
+      begin
+        handleDoor();
+        Map.Walker.WalkBlind(anchorPt);
+        Minimap.CompassDegrees:=0;
+        writeln("["+timeElapsed+"]:" +"Inventory is full, Walking to bank...");
+
+        Map.Walker.WebWalk([6992,36034]);
+        //ShowOnTarget(bankObj);
+        //bankObj.Click();
+        Sleep(1000);
+        Bank.Open();
+
+        if Bank.Open() then
+        begin
+          writeln("["+timeElapsed+"]:" +"Depositing inventory");
+          Bank.DepositInventory();
+          printProgReport();
+          Sleep(1000);
+          Antiban.DoAntiban();
+        end;
+        writeln("["+timeElapsed+"]:" +"Walking to fruit stall");
+
+        Map.Walker.WebWalk(anchorPt);
+        Sleep(2000);
+
+        handleDoor();
+
+        Sleep(2000);
+      end;
+
+    end;
+
+end.

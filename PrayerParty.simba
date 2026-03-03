@@ -1,0 +1,212 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+(******************************************************************************
+* Project: Prayer Party
+* Author : Jake Lam
+*
+How to setup
+1. Make sure menu swap "Bury" is enabled
+2. Start outside rimmington portal
+3. Use DTM EDitor to get the location of your altar and portal
+4. Make sure you are on worlds 330,426,465,512
+
+NOTE: Bot is very fragile, it relys on specific screen positioning.
+You will need to reset outside the House Portal for it to reset.
+******************************************************************************)
+
+var
+  me:TPoint;
+   profile      : TProfile;
+  //fill these our
+  //----------------------------------------
+
+    //Login values
+  LOGIN_NAME  = 'WashUrRice';     //Username/Email
+  LOGIN_PASS  = '@Brad8928828';  //Password
+  PPIN        = '';              //Bank pin
+  WORLDS: TIntegerArray := [301, 302, 299, 300, 303, 304, 305, 310, 311, 312, 314, 315, 317, 330, 331, 332, 333, 334, 335, 337, 338];
+// ─────────────────────────────────────────────────────────────
+  altar:TPoint:= TPoint.Create(408, 143);
+  altarTp:TPoint:= TPoint.Create(269, 153); //Mouse location for speed prayer
+  portal :TPoint:= TPoint.Create(69, 174);
+  compDeg: Integer:= 90;
+
+  //----------------------------------------
+
+  HouseAdObj:TRSObject;
+
+  Phials: TRSObjectArray;
+  TPhialsArray:TPointArray:= [[11796,37582],[11800,37582],[11800,37578],[11800,37574],[11796,37574],[11796,37578]];
+
+  inHouse:Boolean:= False;
+
+Procedure setupLogin();
+begin
+  profile.Name          := LOGIN_NAME;
+  profile.Username      := LOGIN_PASS;
+  profile.Password      := PPIN;
+  Profiles.Add(LOGIN_NAME,LOGIN_PASS,PPIN);
+end;
+
+//Create Phials locations
+procedure initPhialsLocation();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(TPhialsArray) do
+  begin
+    obj := TRSObject.Create(Map.Walker,[1,1,7],[TPhialsArray[tp]], ["Phials"]);
+    Phials.Insert(obj,tp);
+  end;
+end;
+
+procedure handlePhials();
+var
+  i:Integer;
+begin
+  ShowOnTarget(Phials);
+
+  Map.Walker.WebWalk([11804,37574]);
+  //handle phials
+  Inventory.Open();
+  for i := 0 to High(TPhialsArray) do
+  begin
+    Phials[i].Hover();
+    if MainScreen.IsUpText('Talk-to Phials', False, 0.75, 100) then
+    begin
+         Inventory.Slots.Click(1); //make sure bones are in slot 2
+         Phials[i].Hover();
+         Mouse.Click(EMouseButton.LEFT);
+         Sleep(1500);
+         Chat.Select('Exchange All');
+         Chat.Continue();
+         Sleep(500);
+         if Inventory.IsFull() then
+           break;
+    end;
+    Minimap.CompassDegrees := compDeg;
+    Sleep(700);
+
+end;
+
+end;
+procedure enterHouse();
+begin
+  //Enter House ad
+     inHouse:= true;
+
+     Map.Walker.WebWalk([11812,37554]);
+     HouseAdObj.Hover();
+     if MainScreen.IsUpText(' View House Advertisement', False, 0.75, 100) then
+     begin
+       Mouse.Click(EMouseButton.RIGHT);
+       ChooseOption.Select('Visit-Last');
+     end;
+end;
+
+procedure offerBones();
+var
+  i:Integer;
+begin
+     Minimap.CompassDegrees := compDeg;
+
+     if Inventory.Items.Count("Dragon bones") > 0 then
+     begin
+       Minimap.CompassDegrees := compDeg;
+       //handle altar
+       Mouse.Move(altar);
+       if MainScreen.IsUpText('Pray Altar', False, 0.75, 100) then
+       begin
+        writeln("Found Altar, offering bones now");
+        Mouse.Move(altar);
+        Mouse.Click(EMouseButton.LEFT);
+        Sleep(4500);
+        for i:=0 to 29 do
+        begin
+          writeln("Offering bone " + toStr(i));
+          Inventory.Slots.Click(27);
+          Mouse.Move(altarTp);
+          Sleep(150);
+          Mouse.Click(EMouseButton.LEFT);
+          Sleep(450);
+        end;
+        Mouse.Move(Portal);
+
+       end;
+     end;
+end;
+
+
+Procedure init();
+var
+  i:Integer;
+begin
+  setupLogin();
+  Map.Setup([Chunk(Box(45,50,46,49), 0)]);
+  me := Map.Position();
+  HouseAdObj := TRSObject.Create(Map.Walker, [1,1,7], [[11808,37546]], ['House Advertisement']);
+
+
+  initPhialsLocation();
+  Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
+  Inventory.Open();
+  Mouse.Move([50,50]);
+
+  while true do
+  begin
+
+     if inHouse then
+     begin
+       Sleep(2500);
+       offerBones();
+       Sleep(1000);
+
+       //leave Portal
+       if Inventory.Items.Count("Dragon bones") = 0 then
+       begin
+          writeln("Ran out of bones. Exiting House");
+          Mouse.Move(portal);
+          Mouse.Click(EMouseBUtton.LEFT);
+          Sleep(4500);
+          inHouse:= false;
+       end;
+     end;
+
+     if not inHouse then
+     begin
+       //Get Dragon bones
+       if Inventory.Items.Count("Dragon bones") = 0 then
+       begin
+        writeln("Un-Noting bones at Phials");
+        handlePhials();
+        Sleep(200);
+       end;
+
+       if Inventory.Items.Count("Dragon bones") > 0 then
+       begin
+        enterHouse();
+        Sleep(2000);
+       end;
+
+     end;
+
+
+
+
+
+
+
+
+
+  end;
+
+
+
+
+end;
+begin
+  init();
+end.

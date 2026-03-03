@@ -85,12 +85,7 @@ begin
   Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
   Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
   Writeln("+-------------------------------------+");
-  Writeln("");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
-  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
-  Writeln("+------------ XP Gained --------------+");
-  Writeln("");
+
 end;
 procedure mineCrab();
 begin
@@ -197,7 +192,7 @@ begin
       end;
     end;
 
-    Sleep(2000);
+    Sleep(1000);
 end;
 //Pathfinding to closest crab
 procedure setCrabLocation();
@@ -238,7 +233,7 @@ end;
 procedure checkCombatState();
 begin
   xp := XPBar.Read();
-  if not XPBar.WaitXP(5000) then
+  if not XPBar.WaitXP(1500) then
   begin
     isAttacking := false;
     writeln("[" + timeElapsed +"]: " + "No longer in combat");
@@ -255,7 +250,7 @@ var
 begin
   for i:=0 to 5 do
   begin
-    Sleep(1500);
+    Sleep(1000);
     if crabLocation = "north" then
     begin
      Minimap.CompassDegrees:= 0;
@@ -303,8 +298,8 @@ end;
 //main
 begin
   setupLogin();
-  if (not RSClient.IsLoggedIn) then
-    Login.DoLogin(profile);
+  //if (not RSClient.IsLoggedIn) then
+  //  Login.DoLogin(profile);
   timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
   timer.Start();
   //printProgReport();
@@ -314,14 +309,14 @@ begin
   setupAntiBan();
 
   //crab
-  northCrab := TRSObject.Create(@Map.Walker,[4,4,4], [northCrabPt], ["Gemstone Crab"]);
-  eastCrab := TRSObject.Create(@Map.Walker,[4,4,4], [eastCrabPt], ["Gemstone Crab"]);
-  westCrab := TRSObject.Create(@Map.Walker,[4,4,4], [westCrabPt], ["Gemstone Crab"]);
+  northCrab := TRSObject.Create(Map.Walker,[4,4,4], [northCrabPt], ["Gemstone Crab"]);
+  eastCrab := TRSObject.Create(Map.Walker,[4,4,4], [eastCrabPt], ["Gemstone Crab"]);
+  westCrab := TRSObject.Create(Map.Walker,[4,4,4], [westCrabPt], ["Gemstone Crab"]);
 
   //cave
-  eastCave := TRSObject.Create(@Map.Walker,[1,1,7], [eastCavePt], ["Cave"]);
-  westCave := TRSObject.Create(@Map.Walker,[1,1,7], [westCavePt], ["Cave"]);
-  northCave := TRSObject.Create(@Map.Walker,[1,1,7], [northCavePt], ["Cave"]);
+  eastCave := TRSObject.Create(Map.Walker,[1,1,7], [eastCavePt], ["Cave"]);
+  westCave := TRSObject.Create(Map.Walker,[1,1,7], [westCavePt], ["Cave"]);
+  northCave := TRSObject.Create(Map.Walker,[1,1,7], [northCavePt], ["Cave"]);
 
   while True do
   begin
@@ -341,12 +336,24 @@ begin
       checkCrabState();
       if isCrabDead then
       begin
-        mineCrab();
-        Sleep(4000);
+        //mineCrab();
+        Sleep(2000);
         goToNextCrab();
         Sleep(2000);
         printProgReport();
       end;
+    end;
+
+    //use special attack
+    if isAttacking and Minimap.HasSpecial() then
+    begin
+      if (Minimap.GetHPLevel() > 50) and (Minimap.GetSpecLevel() > 60)then
+      begin
+
+        writeln("[" + timeElapsed +" ]: " + "Activating Special Attack");
+        Minimap.EnableSpecial(60);
+      end;
+
     end;
     checkCombatState();
 

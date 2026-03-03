@@ -1,0 +1,170 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+  me,pt:TPoint;
+  ColorFinder:TColorFinder;
+  player:TRSObject;
+  points: T2DPointArray;
+  agilityObs: TRSObjectArray;
+  start:TPoint := [12152,37306];
+  drayTpa : TPointArray:=[
+  [12412,37314], //Rough wall
+  [12496,37164], //Cross Tightrope
+  [12072, 37154],//Cross Tightrope
+  [12048, 37476], //Balance on wall
+  [12132, 37602],
+  [12156,37602],
+  [12534,37484]
+];
+  flag:Integer;
+  isMoving:Boolean;
+
+
+procedure initAgilityCourse();
+var
+  obj : TRSObject;
+  tp : Integer;
+begin
+
+  for tp := 0 to High(drayTpa) do
+  begin
+    obj := TRSObject.Create(@Map.Walker,[1,1,7],[drayTpa[tp]], ["Cross"]);
+    agilityObs.Insert(obj,tp);
+  end;
+end;
+
+//clicks the closest green spot to your cursor
+procedure handleCourse();
+var
+  mousePt, bestPt: TPoint;
+  b, i: Integer;
+  dx, dy, d, bestD: Int64;
+  hasBest: Boolean;
+begin
+    hasBest := False;
+    bestD := 0;
+    mousePt:= Mouse.Position;
+
+    if ColorFinder.find(points) then
+    begin
+      writeln("Performing agility action");
+          for b := 0 to High(points) do
+      for i := 0 to High(points[b]) do
+      begin
+        dx := points[b][i].X - mousePt.X;
+        dy := points[b][i].Y - mousePt.Y;
+        d := dx*dx + dy*dy; // squared distance
+
+        if (not hasBest) or (d < bestD) then
+        begin
+          bestD := d;
+          bestPt := points[b][i];
+          hasBest := True;
+        end;
+      end;
+
+      if hasBest then
+        Mouse.Click(bestPt, EMouseButton.LEFT);
+
+
+    end;
+end;
+
+procedure findAgility();
+var
+  i:Integer;
+begin
+  writeln("Attempting to Locate obstacle " + toStr(flag));
+
+  for i:= 0 to 3 do
+  begin
+    agilityObs[flag].Hover();
+    ShowOnTarget(agilityObs[flag]);
+    //Climb Rough Wall #0
+    if flag = 0 then
+    begin
+      if MainScreen.IsUpText('Climb Rough wall', False, 0.75, 100) then
+      begin
+         writeln("Climbing rough wall");
+         handleCourse();
+         break;
+      end;
+    end;
+
+    //Cross Tightrope #1
+    if flag = 1 then
+    begin
+      if MainScreen.IsUpText('Cross Tightrope', False, 0.75, 100) then
+      begin
+         writeln("Crossing Tight Rope 1");
+         handleCourse();
+         break;
+      end;
+    end;
+
+    //Cross Tightrope #2
+    if flag = 2 then
+    begin
+      if MainScreen.IsUpText('Cross Tightrope', False, 0.75, 100) then
+      begin
+         writeln("Crossing Tight Rope 2");
+         handleCourse();
+         break;
+      end;
+    end;
+    //Balance Narrow wall #3
+    if flag = 3 then
+    begin
+      Minimap.CompassDegrees := 180;
+      if MainScreen.IsUpText('Balance Narrow wall', False, 0.75, 100) then
+      begin
+         writeln("Balance Narrow wall");
+         handleCourse();
+         break;
+      end;
+    end;
+
+
+  end;
+end;
+
+
+procedure init();
+var
+  i:Integer;
+begin
+  start := [12412,37314];//draynor
+    Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
+
+    me := Map.Position();
+    player := TRSObject.Create(@Map.Walker,[1,1,7],[me], ["SuporKiwi"]);
+    ColorFinder.ColorClusters += [
+     [$2E7349, 0.520, EColorSpace.LCH, [0.515, 1.243, 1.243]],
+     [$39715A, 3.312, EColorSpace.LCH, [1.775, 0.544, 0.683]],8
+    ];
+    ColorFinder.Transformer.Grow := 3;
+
+    initAgilityCourse();
+    while true do
+    begin
+      me := Map.Position();
+
+      //writeln(me);
+
+      Sleep(200);
+      for i := 0  to High(agilityObs) do
+      begin
+        writeln(flag);
+        flag := i;
+        findAgility();
+      end;
+
+      //Map.Walker.WebWalk(start);
+      Sleep(1500);
+    end;
+end;
+
+begin
+  init();
+end.

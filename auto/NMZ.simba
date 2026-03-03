@@ -1,0 +1,156 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+  me:TPoint;
+  bosses:TStringArray :=[''];
+  points: T2DPointArray;
+
+ //Reporting values
+  timeElapsed: String;
+  timer,xpTimer,worldTimer  : TStopWatch;
+  xp: Integer;
+  hp : Integer;
+
+  //fail safe
+  isPlayerNearby := false;
+  MAX_ATTEMPTS := 5;
+  PLAYER_INTERRUPT: Integer;
+
+// ─────────────────────────────────────────────────────────────
+// Section: Reporting
+// ─────────────────────────────────────────────────────────────
+
+Procedure endScript(Reason: string);
+begin
+  TerminateScript(Reason);
+end;
+
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ Nightmare Zone ⚔️  ------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+end;
+ 
+procedure setupAntiBan();
+begin
+
+  Antiban.Skills := [ERSSkill.DEFENCE, ERSSkill.ATTACK, ERSSkill.STRENGTH];
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomRightClick,    ONE_MINUTE * 45);
+  Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 11);
+  Antiban.AddTask(@Antiban.HoverSkills,         ONE_MINUTE * 5);
+
+  Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
+  Antiban.DoAntiban();
+end;
+
+Procedure restorePrayer();
+begin
+  writeln("[" + timeElapsed +"]: " + "Restoring Prayer");
+  Inventory.Items.Click("Prayer potion(4)");
+
+  if Inventory.Items.Count("Prayer potion(4)") < 1 then
+  begin
+    Inventory.Items.Click("Prayer potion(3)");
+    if Inventory.Items.Count("Prayer potion(3)") < 1 then
+    begin
+      Inventory.Items.Click("Prayer potion(2)");
+      if Inventory.Items.Count("Prayer potion(2)") < 1 then
+      begin
+        Inventory.Items.Click("Prayer potion(1)");
+        if Inventory.Items.Count("Prayer potion(1)") < 1 then
+          TerminateScript("Ran out of prayer pots");
+      end;
+    end;
+  end;
+end;
+
+
+Procedure restoreAbsorb();
+begin
+  writeln("[" + timeElapsed +"]: " + "Restoring Absorption");
+  Inventory.Items.Click("Absorption (4)");
+
+  if Inventory.Items.Count("Absorption (4)") < 1 then
+  begin
+    Inventory.Items.Click("Absorption (3)");
+    if Inventory.Items.Count("Absorption (3)") < 1 then
+    begin
+      Inventory.Items.Click("Absorption (2)");
+      if Inventory.Items.Count("Absorption (2)") < 1 then
+      begin
+        Inventory.Items.Click("Absorption (1)");
+        if Inventory.Items.Count("Absorption (1)") < 1 then
+          TerminateScript("Ran out of Absorption pots");
+      end;
+    end;
+  end;
+end;
+
+procedure eatRockCake();
+begin
+  writeln("[" + timeElapsed +"]: " + "Returning to 1 hp");
+  while Minimap.GetHPLevel() > 1 do
+  begin
+    Inventory.Items.Click("Dwarven rock cake",EMouseButton.RIGHT);
+    Sleep(1000,1200);
+    ChooseOption.Select("Guzzle Dwarven rock cake");
+    Sleep(1000);
+  end;
+end;
+
+begin
+
+  timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+  timer.Start();
+  xpTimer.Start();
+  printProgReport();
+  setupAntiBan();
+
+  while true do
+    begin
+      xp := XPBar.Read();
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      Sleep(4000);
+      Antiban.DoAntiban();
+
+      //Check Prayer
+      {if( Minimap.UnderLevel(ERSMinimapOrb.PRAYER, 50) = true) then
+      begin
+       Inventory.Open();
+        restorePrayer();
+        printProgReport();
+      end;}
+
+      //Use special attack
+      if Minimap.HasSpecial() then
+      begin
+        if (Minimap.GetSpecLevel() > 60)then
+        begin
+
+          writeln("[" + timeElapsed +" ]: " + "Activating Special Attack");
+          Minimap.EnableSpecial(60);
+
+        end;
+
+      end;
+
+      //Reset to 1hp
+      if Minimap.GetHPLevel() > 1 then
+      begin
+        Sleep(1000,1650);
+        eatRockCake();
+        Sleep(1000);
+        timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+        restoreAbsorb();
+      end;
+
+  end;
+end.

@@ -3,23 +3,30 @@
 {$DEFINE WL_DEBUG_MOUSE}
 var
   me:TPoint;
-  treeObject:TRSObject;
-begin
-    Map.Setup([ERSChunk.VARROCK]);
-    me := Map.Position();
-    treeObject := TRSObject.Create(@Map.Walker, [1,1,7], [[12682,36616]], ['Tree']);
+  ardyKnight:TRSEntity;
 
-    ShowOnTarget(treeObject);
+begin
+    Map.Setup([Chunk(Box(46,52,47,50), 0)]);
+    me := Map.Position();
+
+    //{X = 11896, Y = 37462} anchorpt
+     //{X = 12048, Y = 37002} bankpt
+
+     //{X = 11884,` 1111111` Y = 37478} iron ore 1
+     //{X = 11876, Y = 37474} iron ore 2        z
+
+
+
+
     while true do
     begin
-      writeln("walking!!");
-      treeObject.WalkClick();
-      treeObject.Hover();
-      writeln("Chopping!");
-      Sleep(2500);
+      Sleep(2000);
       me := Map.Position();
+
       writeln(me);
+
     end;
+
 
 
 end.

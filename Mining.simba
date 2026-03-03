@@ -3,17 +3,17 @@
 {$DEFINE WL_Debug_MOUSE}
 var
 // ─────────────────────────────────────────────────────────────
-// Section: Fishing Settings
+// Section: Mining Settings
 // ─────────────────────────────────────────────────────────────
 
-  //fish : TStringArray := ["Raw anchovies","Raw shrimps"];  //Draynor Village
-  fish : TStringArray := ["Raw trout","Raw salmon"];  //Barbarian Village
+
+  ore : TStringArray := ["Iron ore", "Uncut diamond", "Uncut sapphire", "Uncut ruby", "Uncut emerald"];
 
 // ─────────────────────────────────────────────────────────────
 // Section: Bankstander Settings
 // Please fill out the following variables before starting the bot
 // ─────────────────────────────────────────────────────────────
-  LOGIN_NAME  = 'DoodelGurl';     //Username/Email
+  LOGIN_NAME  = 'SirRendor';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
@@ -22,15 +22,15 @@ var
 
   i : Integer;
   player: TPoint;
-  fishSpotsTpa: TPointArray;
+  miningSpotsTpa: TPointArray;
   //manualTPA: TPointArray;
   manualPt:TPoint;
-  fishingSpots: TRSObjectArray;
+  miningSpots: TRSObjectArray;
   anchorPt:     TPoint;
   bankPt,midPt:     TPoint;
   atpa:   T2DPointArray;
 
-  isFishing: Boolean;
+  isMining: Boolean;
 
     //Reporting values
   timeElapsed  : String;
@@ -42,24 +42,14 @@ var
 
 Procedure setupLocation();
 begin
-  writeln("setting up location");
-
-  {Map.Setup([ERSChunk.DRAYNOR_VILLAGE]);
-  anchorPt:= [12348,37522];
-  bankPt  := [12368,37450];
-  fishSpotsTpa:= [[12344,37518],[12340,37510],[12340,37506]];
-   }
-
-  //Barbarian Outpost fishing
-
-  Map.Setup([ERSChunk.EDGEVILLE,ERSChunk.VARROCK]);
-  anchorPt:= [12436,36698];
-  bankPt  := [12732,36690];
-  fishSpotsTpa := [[12440,36698],[12440,36702],[12440,36694],[12440,36706],[12440,36710],
-  [12416,36734],[12416,36730]];
+  writeln("["+timeElapsed+"]: "+"Setting up location");
+  Map.Setup([Chunk(Box(46,52,47,50), 0)]);
+  anchorPt:= [11876,37474];
+  bankPt  := [12048,37002];
+  miningSpotsTpa := [[11872,37474],[11876,37470]];             //,[11880,37474]
 
   //manualTPA:=[[667,131]];
-  manualPt:=[589,107];
+  manualPt:=[648,102];
 
 end;
 
@@ -112,7 +102,7 @@ begin
 
 end;
 
-procedure bankFish();
+procedure bankOres();
 var
   i:Integer;
 begin
@@ -120,9 +110,10 @@ begin
    writeln("["+timeElapsed+"]: "+"Inventory is full, banking");
    Map.Walker.WebWalk(bankPt);
    Bank.Open();
-   for i:=0 to High(fish) do
+   Sleep(1500);
+   for i:=0 to High(ore) do
    begin
-    Inventory.Items.Click(fish[i]);
+    Inventory.Items.Click(ore[i]);
     Sleep(1500);
    end;
    Sleep(1000);
@@ -133,7 +124,7 @@ begin
     Mouse.Move(manualPt);
     Sleep(1500);
     Mouse.Click(EMouseButton.LEFT);
-    Sleep(4000);
+    Sleep(2000);
     writeln("["+timeElapsed+"]: "+"Manually navigating");
    end;
 
@@ -141,53 +132,53 @@ begin
 end;
 
 
-procedure checkFishingState();
+procedure checkMiningState();
 begin
   xp := XPBar.Read();
-  if not XPBar.WaitXP(15000) then
+  if not XPBar.WaitXP(3000) then
   begin
-    isFishing := false;
-    Writeln("["+timeElapsed+"]: "+ "No longer fishing");
+    isMining := false;
+    Writeln("["+timeElapsed+"]: "+ "No longer Mining");
   end
   else
   begin
-    isFishing := true;
-    Sleep(5000);
+    isMining := true;
+    Sleep(2000);
   end;
 end;
 
-procedure findFishingSpots();
+procedure findMiningSpots();
 begin
-  for i:=0 to High(fishingSpots) do
+  for i:=0 to High(miningSpots) do
   begin
-    fishingSpots[i].Hover();
-    if MainScreen.IsUpText('Net Fishing spot ', False, 0.75, 100) then
+    miningSpots[i].Hover();
+    if MainScreen.IsUpText('Mine Iron Rocks ', False, 0.75, 100) then
     begin
-      writeln ("["+timeElapsed+"]: "+"Fishing Spot is active");
+      writeln ("["+timeElapsed+"]: "+"Mining Spot is available");
       Mouse.Click(EMouseButton.LEFT);
-      isFishing:= true;
-      ShowOnTarget(fishingSpots[i]);
-      break;
+      isMining:= true;
+      ShowOnTarget(miningSpots[i]);
+
     end;
   Sleep(2000);
   end;
 end;
 
-//Create fishing spots with a color finder
-procedure initFishingSpots();
+//Create Mining spots with a color finder
+procedure initMiningSpots();
 var
   obj : TRSObject;
   tp : Integer;
 begin
 
-  for tp := 0 to High(fishSpotsTpa) do
+  for tp := 0 to High(miningSpotsTpa) do
   begin
-    obj := TRSObject.Create(Map.Walker,[1,1,7],[fishSpotsTpa[tp]], ["Net Fishing Spot"]);
+    obj := TRSObject.Create(Map.Walker,[1,1,7],[miningSpotsTpa[tp]], ["Mine Iron Ore  Spot"]);
     obj.Finder.ColorClusters += [
-      [$989084, 0.932, EColorSpace.LCH, [1.663, 1.220, 0.119]],
-      [$CBC4C0, 3.820, EColorSpace.LCH, [0.422, 2.298, 0.281]],8
+      [$293149, 0.346, EColorSpace.LCH, [1.000, 1.000, 1.000]],
+      [$2E3B59, 0.163, EColorSpace.LCH, [1.000, 1.000, 1.000]],8
     ];
-    fishingSpots.Insert(obj,tp);
+    miningSpots.Insert(obj,tp);
   end;
 end;
 
@@ -199,41 +190,45 @@ begin
     setupLogin();
     writeln Map.Position();
     player := Map.Position();
-    initFishingSpots();
+    initMiningSpots();
     Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
     setupAntiban();
 
     timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
     timer.Start();
-
+    ShowOnTarget(miningSpots);
     while True do
     begin
+
+
       timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
       Minimap.CompassDegrees := 0;
-      Sleep(5000);
-      ShowOnTarget(fishingSpots);
-      checkFishingState();
+      Sleep(2000);
+
+
+
+      checkMiningState();
 
       if not Inventory.isOpen() then
         Inventory.Open();
 
       if Inventory.IsFull() then
       begin
-        bankFish();
+        bankOres();
 
-        Map.Walker.WalkBlind(anchorPt);
-        isFishing := false;
+        Map.Walker.WebWalk(anchorPt);
+        isMining := false;
       end;
-      Antiban.DoAntiban();
 
-      if not isFishing then
+
+      if not isMining then
       begin
         for i:=0 to 10 do
         begin
-          findFishingSpots();
+          findMiningSpots();
           if i = 5 then
             Map.Walker.WebWalk(anchorPt);
-          if isFishing = true then
+          if isMining = true then
             break;
           if Inventory.IsFull() then
             break;

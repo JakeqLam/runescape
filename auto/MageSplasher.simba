@@ -1,0 +1,79 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+  me:TPoint;
+  npc:TRSEntity;
+  npcName:="Knight of Ardougne";
+   p:TPoint;
+
+  //Reporting values
+  timeElapsed  : String;
+  timer,xpTimer,worldTimer: TStopWatch;
+  xp           : Integer;
+  actions      : Integer;
+  hp : Integer;
+
+procedure printProgReport();
+begin
+  Writeln("");
+  Writeln("+ BankStander 💰----------------------+");
+  Writeln("| Total Time Elapsed:       " + timeElapsed + "  |");
+  Writeln("| Bot Time:                 " + toStr(Logger.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  |");
+  Writeln("| Antiban Time:             " + toStr(Antiban.TimeRunning.ElapsedFmt(TIME_SHORT)) + "  | ");
+  Writeln("+-------------------------------------+");
+  Writeln("");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("| You have gained: " + toStr(XPBar.TotalEarnedXP) + " XP    ");
+  Writeln("| Experience Per Hour: " + toStr((XPBar.TotalEarnedXP/(timer.Elapsed/1000))*3600) + " xp/hr ");
+  Writeln("+------------ XP Gained --------------+");
+  Writeln("");
+end;
+
+procedure setupAntiBan();
+begin
+  Antiban.AddTask(@Antiban.SmallRandomMouse,    ONE_MINUTE * 1);
+  Antiban.AddTask(@Antiban.RandomTab,           ONE_MINUTE * 25);
+  Antiban.AddTask(@Antiban.SmallCameraRotation, ONE_MINUTE * 1);
+
+  Antiban.DoAntiban();
+end;
+
+begin
+    Map.Setup([ERSChunk.ARDOUGNE]);
+    me := Map.Position();
+    setupAntiban();
+    Sleep(2500);
+    p:= TPoint.Create(50, 50);
+
+    npc := TRSEntity.Create(Map.Walker,[1,1,7],80,[me], ['Attack '+npcName], [ERSMinimapDot.NPC]);
+    //ardyKnight := TRSEntity.Create(Map.Walker,[1,1,7],80,[me], ['Pickpocket Guard'], [ERSMinimapDot.NPC]);
+
+    while true do
+    begin
+      timeElapsed := toStr(GetTimeStamp(TIME_SHORT));
+      Sleep(5000);
+
+      ShowOnTarget(npc);
+
+      xp := XPBar.Read();
+      Antiban.DoAntiban();
+      if not XPBar.WaitXP(10000) then
+      begin
+        Writeln("[" + timeElapsed +"]: " + "No longer in splashing");
+        npc.Hover();
+        if MainScreen.IsUpText('Attack ' + npcName, False, 0.75, 100) then
+        begin
+          Writeln("[" + timeElapsed +"]: " + "Found target");
+        end;
+      end;
+      npc.Hover();
+
+
+      writeln(me);
+      Sleep(100000);
+      Mouse.Move(p);
+      printProgReport();
+    end;
+
+end.

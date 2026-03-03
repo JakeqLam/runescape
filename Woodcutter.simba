@@ -1,0 +1,77 @@
+{$I WaspLib/osrs.simba}
+{$DEFINE WL_DEBUG_UPTEXT}
+{$DEFINE WL_DEBUG_MOUSE}
+var
+  me:TPoint;
+  tree:TRSEntity;
+
+  points: T2DPointArray;
+  agilityObs: TRSObjectArray;
+  //start:TPoint := [12720,37474];
+  ColorFinder:TColorFinder;
+
+
+
+//clicks the closest green spot to your cursor
+procedure findTree();
+var
+  mousePt, bestPt: TPoint;
+  b, i: Integer;
+  dx, dy, d, bestD: Int64;
+  hasBest: Boolean;
+begin
+    hasBest := False;
+    bestD := 0;
+    mousePt:= Mouse.Position;
+
+    if ColorFinder.find(points) then
+    begin
+      writeln("Chopping tree");
+      for b := 0 to High(points) do
+        for i := 0 to High(points[b]) do
+        begin
+          dx := points[b][i].X - mousePt.X;
+          dy := points[b][i].Y - mousePt.Y;
+          d := dx*dx + dy*dy; // squared distance
+
+          if (not hasBest) or (d < bestD) then
+          begin
+            bestD := d;
+            bestPt := points[b][i];
+            hasBest := True;
+          end;
+        end;
+
+      if hasBest then
+        Mouse.Click(bestPt, EMouseButton.LEFT);
+      Sleep(4000);
+    end;
+end;
+
+
+begin
+    Map.Setup([ERSChunk.LUMBRIDGE]);
+    me := Map.Position();
+
+    tree := TRSEntity.Create(Map.Walker,[1,1,7],80,[me], ['Tree'], [ERSMinimapDot.ITEM]);
+
+    ColorFinder.ColorClusters += [
+     [$223C37, 0.457, EColorSpace.LCH, [1.000, 1.000, 1.000]],
+     [$2B4E47, 0.851, EColorSpace.LCH, [0.293, 0.446, 2.263]],8
+    ];
+    ColorFinder.Transformer.Grow := 3;
+
+    while true do
+    begin
+      Sleep(2000);
+
+
+
+      findTree();
+      writeln(me);
+
+    end;
+
+
+
+end.

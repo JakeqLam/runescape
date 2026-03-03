@@ -4,15 +4,15 @@
 
 var
 // ─────────────────────────────────────────────────────────────
-  LOGIN_NAME  = 'SuporKiwi';     //Username/Email
+  LOGIN_NAME  = 'WashUrRice';     //Username/Email
   LOGIN_PASS  = '@Brad8928828';  //Password
   PPIN        = '';              //Bank pin
 
 // ─────────────────────────────────────────────────────────────
   profile      : TProfile;
   me: TPoint;
-  plant: String:= "Golovanova";       //lvl34
-  //plant: String:= "Bologano";         //lvl54
+  //plant: String:= "Golovanova";       //lvl34
+  plant: String:= "Bologano";         //lvl54
   //plant: String:= "Logavano";         //lvl74
   //wateringCan: String := "Gricoller's can";
   wateringCan: String := "Watering can";
@@ -83,8 +83,8 @@ procedure setupAntiBan();
 begin
 
   Antiban.AddBreak(ONE_MINUTE*5, ONE_SECOND*40, 0.2, 0.0);   //Short break
-  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*30, 0.2, 0.0);  //Moderate break
-  Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
+  Antiban.AddBreak(ONE_MINUTE*60, ONE_MINUTE*15, 0.2, 0.0);  //Moderate break
+  //Antiban.AddBreak(ONE_MINUTE*240, ONE_MINUTE*90, 0.2, 0.0);  //Long break
   Antiban.DoAntiban();
 end;
 //Create tithe farm plots
@@ -96,7 +96,7 @@ begin
 
   for tp := 0 to High(plotTpa) do
   begin
-    obj := TRSObject.Create(@Map.Walker,[1,1,7],[plotTpa[tp]], ["Water "+plant+ " seedling"]);
+    obj := TRSObject.Create(Map.Walker,[1,1,7],[plotTpa[tp]], ["Water "+plant+ " seedling"]);
     farmPlots.Insert(obj,tp);
   end;
 end;
@@ -203,7 +203,7 @@ begin
   Map.Setup([ERSChunk.TITHE_FARM]);
   me := Map.Position(); //Player
   setupLogin();
-  waterBarrel := TRSObject.Create(@Map.Walker,[1,1,7],[[7292, 36490]], ["Water Barrel"]);
+  waterBarrel := TRSObject.Create(Map.Walker,[1,1,7],[[7292, 36490]], ["Water Barrel"]);
   initFarmPlots();
   ShowOnTarget(farmPlots);
   Inventory.Items.Setup('Inventory.Items', @Inventory.Slots, [0, 0], @Inventory.Open);
@@ -262,3 +262,5 @@ end;
 begin
   init();
 end.
+
+
